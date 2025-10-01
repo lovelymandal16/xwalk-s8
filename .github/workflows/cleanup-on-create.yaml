@@ -34,8 +34,6 @@ jobs:
         run: |
           sed -i.bak "s/{repo}/$(basename ${{ github.repository }})/g" README.md
           sed -i.bak "s/{owner}/$(dirname ${{ github.repository }})/g" README.md
-<<<<<<< HEAD
-=======
 
       - name: Create fstab.yaml for hlx4 projects
         run: |
@@ -49,16 +47,11 @@ jobs:
           sed -i.bak "s/{repo}/$(basename ${{ github.repository }})/g" fstab.yaml
           sed -i.bak "s/{owner}/$(dirname ${{ github.repository }})/g" fstab.yaml
 
->>>>>>> 7ce0d16 (Initial commit)
       - name: Initialize Pull Request Template
         run: |
           sed -i.bak "s/{repo}/$(basename ${{ github.repository }})/g" .github/pull_request_template.md
           sed -i.bak "s/{owner}/$(dirname ${{ github.repository }})/g" .github/pull_request_template.md
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 7ce0d16 (Initial commit)
         # commit back to the repository
       - name: Commit changes
         run: |
