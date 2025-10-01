@@ -1,10 +1,18 @@
 {
   "mappings": [
+<<<<<<< HEAD
     "/content/aem-boilerplate/:/",
     "/content/aem-boilerplate/configuration:/.helix/config.json",
     "/content/aem-boilerplate/metadata:/metadata.json"
   ],
   "includes": [
     "/content/aem-boilerplate/"
+=======
+    "/:/"
+  ],
+  "includes": [
+    "/content/",
+    "/content/dam/"
+>>>>>>> 7ce0d16 (Initial commit)
   ]
 }

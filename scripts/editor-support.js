@@ -50,7 +50,13 @@ async function applyChanges(event) {
     if (block) {
       const blockResource = block.getAttribute('data-aue-resource');
       const newBlock = parsedUpdate.querySelector(`[data-aue-resource="${blockResource}"]`);
+<<<<<<< HEAD
       if (newBlock) {
+=======
+      if (block.dataset.aueModel === 'form') {
+        return true;
+      } else if (newBlock) {
+>>>>>>> 7ce0d16 (Initial commit)
         newBlock.style.display = 'none';
         block.insertAdjacentElement('afterend', newBlock);
         decorateButtons(newBlock);
@@ -93,7 +99,11 @@ async function applyChanges(event) {
   return false;
 }
 
+<<<<<<< HEAD
 function attachEventListners(main) {
+=======
+async function attachEventListners(main) {
+>>>>>>> 7ce0d16 (Initial commit)
   [
     'aue:content-patch',
     'aue:content-update',
@@ -106,6 +116,11 @@ function attachEventListners(main) {
     const applied = await applyChanges(event);
     if (!applied) window.location.reload();
   }));
+<<<<<<< HEAD
+=======
+  const module = await import('./form-editor-support.js');
+  module.attachEventListners(main);
+>>>>>>> 7ce0d16 (Initial commit)
 }
 
 attachEventListners(document.querySelector('main'));
