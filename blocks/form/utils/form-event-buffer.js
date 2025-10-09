@@ -344,7 +344,46 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
                     if (window.hlx.rum.trackCheckpoint) {
                       window.hlx.rum.trackCheckpoint(...queueItem);
                     } else {
-                      console.warn('⚠️ trackCheckpoint function not available, queue item not processed');
+                      // Implement our own trackCheckpoint function based on rum-enhancer
+                      console.log('🔍 trackCheckpoint not available, implementing direct API call');
+                      try {
+                        const [checkpoint, data, timestamp] = queueItem;
+                        const { weight, id } = window.hlx.rum;
+                        
+                        // Create the request body (simplified version of rum-enhancer trackCheckpoint)
+                        const body = JSON.stringify({
+                          weight,
+                          id,
+                          referer: window.location.pathname,
+                          checkpoint,
+                          t: timestamp,
+                          ...data
+                        });
+                        
+                        // Create the URL
+                        const url = `/.rum/${weight}`;
+                        
+                        console.log('📤 Sending direct API call to:', url, 'with data:', body);
+                        
+                        // Send using navigator.sendBeacon (same as rum-enhancer)
+                        if (navigator.sendBeacon) {
+                          const success = navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+                          console.log('✅ sendBeacon result:', success);
+                        } else {
+                          console.warn('⚠️ sendBeacon not available, using fetch fallback');
+                          fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: body
+                          }).then(response => {
+                            console.log('✅ fetch result:', response.status);
+                          }).catch(error => {
+                            console.error('❌ fetch error:', error);
+                          });
+                        }
+                      } catch (error) {
+                        console.error('❌ Error in direct API call:', error);
+                      }
                     }
                   });
                   // Clear the queue after processing
@@ -625,7 +664,46 @@ function addListenersToForm(form) {
                         if (window.hlx.rum.trackCheckpoint) {
                           window.hlx.rum.trackCheckpoint(...queueItem);
                         } else {
-                          console.warn('⚠️ trackCheckpoint function not available, queue item not processed');
+                          // Implement our own trackCheckpoint function based on rum-enhancer
+                          console.log('🔍 trackCheckpoint not available, implementing direct API call');
+                          try {
+                            const [checkpoint, data, timestamp] = queueItem;
+                            const { weight, id } = window.hlx.rum;
+                            
+                            // Create the request body (simplified version of rum-enhancer trackCheckpoint)
+                            const body = JSON.stringify({
+                              weight,
+                              id,
+                              referer: window.location.pathname,
+                              checkpoint,
+                              t: timestamp,
+                              ...data
+                            });
+                            
+                            // Create the URL
+                            const url = `/.rum/${weight}`;
+                            
+                            console.log('📤 Sending direct API call to:', url, 'with data:', body);
+                            
+                            // Send using navigator.sendBeacon (same as rum-enhancer)
+                            if (navigator.sendBeacon) {
+                              const success = navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+                              console.log('✅ sendBeacon result:', success);
+                            } else {
+                              console.warn('⚠️ sendBeacon not available, using fetch fallback');
+                              fetch(url, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: body
+                              }).then(response => {
+                                console.log('✅ fetch result:', response.status);
+                              }).catch(error => {
+                                console.error('❌ fetch error:', error);
+                              });
+                            }
+                          } catch (error) {
+                            console.error('❌ Error in direct API call:', error);
+                          }
                         }
                       });
                       // Clear the queue after processing
