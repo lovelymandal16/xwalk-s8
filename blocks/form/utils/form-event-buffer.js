@@ -340,6 +340,97 @@ function createTargetSelector(element) {
 }
 
 /**
+ * Add event listeners to a specific form
+ * @param {Element} form - The form element to add listeners to
+ */
+function addListenersToForm(form) {
+  console.log('🔍 Adding listeners to form:', form);
+  
+  // Form submit listener
+  form.addEventListener('submit', (submitEvent) => {
+    console.log('📝 Direct form submit event:', submitEvent.target);
+    const submitType = getSubmitType(submitEvent.target);
+    const source = createSourceSelector(submitEvent.target);
+    const target = createTargetSelector(submitEvent.target);
+    
+    // Buffer the submit event
+    bufferEvent({
+      checkpoint: submitType,
+      data: { source, target },
+      timestamp: Date.now()
+    });
+    
+    // Only flush buffered events if this is a formsubmit checkpoint
+    if (submitType === FORM_SUBMIT_FLUSH_CHECKPOINT) {
+      console.log('🚀 Direct formsubmit detected, flushing buffer');
+      const allBufferedEvents = getBufferedEvents();
+      if (allBufferedEvents.length > 0) {
+        console.log('📤 Flushing', allBufferedEvents.length, 'buffered events on direct formsubmit');
+        allBufferedEvents.forEach(bufferedEvent => {
+          if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
+            window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+          }
+        });
+        clearBufferedEvents();
+      }
+    } else {
+      console.log('📝 Form submit detected but not formsubmit, not flushing buffer:', submitType);
+    }
+  }, { once: true });
+  
+  // Form field change listener (fill events)
+  let lastSource;
+  form.addEventListener('change', (changeEvent) => {
+    console.log('📝 Direct form change event:', changeEvent.target);
+    if (changeEvent.target.checkVisibility && changeEvent.target.checkVisibility()) {
+      const source = createSourceSelector(changeEvent.target);
+      if (source !== lastSource) {
+        bufferEvent({
+          checkpoint: 'fill',
+          data: { source },
+          timestamp: Date.now()
+        });
+        lastSource = source;
+      }
+    }
+  });
+  
+  // Form field focus listener (click events)
+  form.addEventListener('focusin', (focusEvent) => {
+    console.log('📝 Direct form focus event:', focusEvent.target);
+    if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(focusEvent.target.tagName)
+      || focusEvent.target.getAttribute('contenteditable') === 'true') {
+      const source = createSourceSelector(focusEvent.target);
+      bufferEvent({
+        checkpoint: 'click',
+        data: { source },
+        timestamp: Date.now()
+      });
+    }
+  });
+  
+  // Form visibility listener (viewblock events)
+  if (window.IntersectionObserver) {
+    const observer = new IntersectionObserver((entries) => {
+      entries
+        .filter((e) => e.isIntersecting)
+        .forEach((e) => {
+          observer.unobserve(e.target);
+          const source = createSourceSelector(e.target);
+          const target = createTargetSelector(e.target);
+          console.log('📝 Direct form viewblock event:', e.target);
+          bufferEvent({
+            checkpoint: 'viewblock',
+            data: { source, target },
+            timestamp: Date.now()
+          });
+        });
+    });
+    observer.observe(form);
+  }
+}
+
+/**
  * Add direct form event listeners to capture form interactions
  * @param {Element} context - The context element to search for forms
  */
@@ -351,90 +442,54 @@ function addDirectFormListeners(context) {
   
   forms.forEach((form, index) => {
     console.log(`🔍 Adding listeners to form ${index + 1}:`, form);
-    
-    // Form submit listener
-    form.addEventListener('submit', (submitEvent) => {
-      console.log('📝 Direct form submit event:', submitEvent.target);
-      const submitType = getSubmitType(submitEvent.target);
-      const source = createSourceSelector(submitEvent.target);
-      const target = createTargetSelector(submitEvent.target);
-      
-      // Buffer the submit event
-      bufferEvent({
-        checkpoint: submitType,
-        data: { source, target },
-        timestamp: Date.now()
-      });
-      
-      // Only flush buffered events if this is a formsubmit checkpoint
-      if (submitType === FORM_SUBMIT_FLUSH_CHECKPOINT) {
-        console.log('🚀 Direct formsubmit detected, flushing buffer');
-        const allBufferedEvents = getBufferedEvents();
-        if (allBufferedEvents.length > 0) {
-          console.log('📤 Flushing', allBufferedEvents.length, 'buffered events on direct formsubmit');
-          allBufferedEvents.forEach(bufferedEvent => {
-            if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
-              window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
-            }
-          });
-          clearBufferedEvents();
-        }
-      } else {
-        console.log('📝 Form submit detected but not formsubmit, not flushing buffer:', submitType);
-      }
-    }, { once: true });
-    
-    // Form field change listener (fill events)
-    let lastSource;
-    form.addEventListener('change', (changeEvent) => {
-      console.log('📝 Direct form change event:', changeEvent.target);
-      if (changeEvent.target.checkVisibility && changeEvent.target.checkVisibility()) {
-        const source = createSourceSelector(changeEvent.target);
-        if (source !== lastSource) {
-          bufferEvent({
-            checkpoint: 'fill',
-            data: { source },
-            timestamp: Date.now()
-          });
-          lastSource = source;
-        }
-      }
-    });
-    
-    // Form field focus listener (click events)
-    form.addEventListener('focusin', (focusEvent) => {
-      console.log('📝 Direct form focus event:', focusEvent.target);
-      if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(focusEvent.target.tagName)
-        || focusEvent.target.getAttribute('contenteditable') === 'true') {
-        const source = createSourceSelector(focusEvent.target);
-        bufferEvent({
-          checkpoint: 'click',
-          data: { source },
-          timestamp: Date.now()
-        });
-      }
-    });
-    
-    // Form visibility listener (viewblock events)
-    if (window.IntersectionObserver) {
-      const observer = new IntersectionObserver((entries) => {
-        entries
-          .filter((e) => e.isIntersecting)
-          .forEach((e) => {
-            observer.unobserve(e.target);
-            const source = createSourceSelector(e.target);
-            const target = createTargetSelector(e.target);
-            console.log('📝 Direct form viewblock event:', e.target);
-            bufferEvent({
-              checkpoint: 'viewblock',
-              data: { source, target },
-              timestamp: Date.now()
-            });
-          });
-      });
-      observer.observe(form);
-    }
+    addListenersToForm(form);
   });
+  
+  // Set up MutationObserver to watch for dynamically added forms
+  if (window.MutationObserver) {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if the added node is a form
+            if (node.tagName === 'FORM') {
+              console.log('🔍 New form detected via MutationObserver:', node);
+              addListenersToForm(node);
+            }
+            // Check if the added node contains forms
+            const formsInNode = node.querySelectorAll && node.querySelectorAll('form');
+            if (formsInNode && formsInNode.length > 0) {
+              console.log('🔍 New forms detected in added node:', formsInNode.length);
+              formsInNode.forEach(form => {
+                addListenersToForm(form);
+              });
+            }
+          }
+        });
+      });
+    });
+    
+    observer.observe(context, {
+      childList: true,
+      subtree: true
+    });
+    
+    console.log('🔍 MutationObserver set up to watch for new forms');
+  }
+}
+
+/**
+ * Debug function to check localStorage contents
+ */
+function debugLocalStorage() {
+  const bufferKey = getBufferKey();
+  const stored = localStorage.getItem(bufferKey);
+  console.log('🔍 Debug localStorage:', {
+    bufferKey,
+    hasData: !!stored,
+    data: stored ? JSON.parse(stored) : null
+  });
+  return stored ? JSON.parse(stored) : null;
 }
 
 /**
@@ -465,5 +520,9 @@ export default function addFormEventBuffer({ sampleRUM, context = document.body 
   // Clean up expired events periodically
   setInterval(cleanupExpiredBuffer, 30 * 60 * 1000);
   
+  // Add debug function to window for easy access
+  window.debugFormEventBuffer = debugLocalStorage;
+  
   console.log('✅ Form Event Buffer Plugin: Initialized successfully');
+  console.log('🔍 You can check localStorage with: window.debugFormEventBuffer()');
 }
