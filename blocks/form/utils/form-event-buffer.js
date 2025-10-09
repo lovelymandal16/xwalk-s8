@@ -367,7 +367,7 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
                         const KNOWN_PROPERTIES = ['weight', 'id', 'referer', 'checkpoint', 't', 'source', 'target', 'cwv', 'CLS', 'FID', 'LCP', 'INP', 'TTFB'];
                         
                         const body = JSON.stringify({
-                          weight: 1, // Force weight to 1 like existing code
+                          weight: 1, // Force weight to 1 to match existing implementation
                           id,
                           referer: urlSanitizers[window.hlx.RUM_MASK_URL || 'path'](), // Use urlSanitizers like rum-enhancer
                           checkpoint,
@@ -701,7 +701,7 @@ function addListenersToForm(form) {
                         const KNOWN_PROPERTIES = ['weight', 'id', 'referer', 'checkpoint', 't', 'source', 'target', 'cwv', 'CLS', 'FID', 'LCP', 'INP', 'TTFB'];
                         
                         const body = JSON.stringify({
-                          weight: 1, // Force weight to 1 like existing code
+                          weight: 1, // Force weight to 1 to match existing implementation
                           id,
                           referer: urlSanitizers[window.hlx.RUM_MASK_URL || 'path'](), // Use urlSanitizers like rum-enhancer
                           checkpoint,
