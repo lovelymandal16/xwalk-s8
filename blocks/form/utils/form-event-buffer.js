@@ -352,14 +352,28 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
                         
                         // Create the request body (exact copy from rum-enhancer trackCheckpoint)
                         // Force weight to 1 to match existing implementation
+                        
+                        // Implement urlSanitizers (copied from rum-enhancer)
+                        const urlSanitizers = {
+                          full: (url = window.location.href) => new URL(url).toString(),
+                          origin: (url = window.location.href) => new URL(url).origin,
+                          path: (url = window.location.href) => {
+                            const u = new URL(url);
+                            return `${u.origin}${u.pathname}`;
+                          }
+                        };
+                        
+                        // KNOWN_PROPERTIES (copied from rum-enhancer)
+                        const KNOWN_PROPERTIES = ['weight', 'id', 'referer', 'checkpoint', 't', 'source', 'target', 'cwv', 'CLS', 'FID', 'LCP', 'INP', 'TTFB'];
+                        
                         const body = JSON.stringify({
                           weight: 1, // Force weight to 1 like existing code
                           id,
-                          referer: window.location.href, // Full URL like existing code
+                          referer: urlSanitizers[window.hlx.RUM_MASK_URL || 'path'](), // Use urlSanitizers like rum-enhancer
                           checkpoint,
                           t: timestamp,
                           ...data
-                        });
+                        }, KNOWN_PROPERTIES); // Use KNOWN_PROPERTIES like rum-enhancer
                         
                         // Create the URL (exact copy from rum-enhancer)
                         const urlParams = window.RUM_PARAMS ? `?${new URLSearchParams(window.RUM_PARAMS).toString()}` : '';
@@ -672,14 +686,28 @@ function addListenersToForm(form) {
                             
                         // Create the request body (exact copy from rum-enhancer trackCheckpoint)
                         // Force weight to 1 to match existing implementation
+                        
+                        // Implement urlSanitizers (copied from rum-enhancer)
+                        const urlSanitizers = {
+                          full: (url = window.location.href) => new URL(url).toString(),
+                          origin: (url = window.location.href) => new URL(url).origin,
+                          path: (url = window.location.href) => {
+                            const u = new URL(url);
+                            return `${u.origin}${u.pathname}`;
+                          }
+                        };
+                        
+                        // KNOWN_PROPERTIES (copied from rum-enhancer)
+                        const KNOWN_PROPERTIES = ['weight', 'id', 'referer', 'checkpoint', 't', 'source', 'target', 'cwv', 'CLS', 'FID', 'LCP', 'INP', 'TTFB'];
+                        
                         const body = JSON.stringify({
                           weight: 1, // Force weight to 1 like existing code
                           id,
-                          referer: window.location.href, // Full URL like existing code
+                          referer: urlSanitizers[window.hlx.RUM_MASK_URL || 'path'](), // Use urlSanitizers like rum-enhancer
                           checkpoint,
                           t: timestamp,
                           ...data
-                        });
+                        }, KNOWN_PROPERTIES); // Use KNOWN_PROPERTIES like rum-enhancer
                         
                         // Create the URL (exact copy from rum-enhancer)
                         const urlParams = window.RUM_PARAMS ? `?${new URLSearchParams(window.RUM_PARAMS).toString()}` : '';
