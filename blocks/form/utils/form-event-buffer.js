@@ -317,7 +317,10 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
         // Flush buffered events directly to RUM collector, bypassing sampling
         allBufferedEvents.forEach(bufferedEvent => {
           if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
+            console.log('📤 Sending buffered event to RUM collector:', bufferedEvent);
             window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+          } else {
+            console.warn('⚠️ RUM collector not available for buffered event:', bufferedEvent);
           }
         });
         clearBufferedEvents();
@@ -551,7 +554,10 @@ function addListenersToForm(form) {
             console.log('📤 Flushing', allBufferedEvents.length, 'buffered events on direct formsubmit');
             allBufferedEvents.forEach(bufferedEvent => {
               if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
+                console.log('📤 Sending buffered event to RUM collector (direct):', bufferedEvent);
                 window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+              } else {
+                console.warn('⚠️ RUM collector not available for buffered event (direct):', bufferedEvent);
               }
             });
             clearBufferedEvents();
