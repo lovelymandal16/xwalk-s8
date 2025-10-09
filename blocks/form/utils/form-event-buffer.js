@@ -306,37 +306,120 @@ function getSubmitType(el) {
 }
 
 /**
- * Create source selector for form elements
- * @param {Element} element - The form element
- * @returns {string} The source selector
+ * Get target value for an element (copied from reference implementation)
+ * @param {Element} el - The element
+ * @returns {string} The target value
  */
-function createSourceSelector(element) {
-  if (!element) return '';
-  
-  const tagName = element.tagName.toLowerCase();
-  const type = element.type ? `[type='${element.type}']` : '';
-  const name = element.name ? `[name='${element.name}']` : '';
-  const id = element.id ? `#${element.id}` : '';
-  const className = element.className ? `.${element.className.split(' ').join('.')}` : '';
-  
-  return `${tagName}${type}${name}${id}${className}`;
+function getTargetValue(el) {
+  return el.getAttribute('data-rum-target') || el.getAttribute('href')
+    || el.currentSrc || el.getAttribute('src') || el.dataset.action || el.action;
 }
 
 /**
- * Create target selector for form elements
- * @param {Element} element - The form element
+ * Create target selector for form elements (copied from reference implementation)
+ * @param {Element} el - The form element
  * @returns {string} The target selector
  */
-function createTargetSelector(element) {
-  if (!element) return '';
-  
-  const form = element.closest('form');
-  if (!form) return createSourceSelector(element);
-  
-  const formSelector = createSourceSelector(form);
-  const elementSelector = createSourceSelector(element);
-  
-  return `${formSelector} ${elementSelector}`;
+function createTargetSelector(el) {
+  try {
+    if (!el) return undefined;
+    let v = getTargetValue(el);
+    if (!v && el.tagName !== 'A' && el.closest('a')) {
+      v = getTargetValue(el.closest('a'));
+    }
+    if (v && !v.startsWith('https://')) {
+      // resolve relative links
+      v = new URL(v, window.location).href;
+    }
+    return v;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Walk up the DOM tree to find context
+ * @param {Element} el - The element
+ * @param {Function} checkFn - Function to check each element
+ * @returns {string|undefined} The context
+ */
+function walk(el, checkFn) {
+  if (!el || el === document.body || el === document.documentElement) {
+    return undefined;
+  }
+  return checkFn(el) || walk(el.parentElement || (el.parentNode && el.parentNode.host), checkFn);
+}
+
+/**
+ * Get source context for an element (copied from reference implementation)
+ * @param {Element} el - The element
+ * @returns {string} The source context
+ */
+function getSourceContext(el) {
+  const formEl = el.closest('form');
+  if (formEl) {
+    const id = formEl.getAttribute('id');
+    if (id) {
+      return `form#${CSS.escape(id)}`;
+    }
+    return `form${formEl.classList.length > 0 ? `.${CSS.escape(formEl.classList[0])}` : ''}`;
+  }
+  const block = el.closest('.block[data-block-name]');
+  return ((block && `.${block.getAttribute('data-block-name')}`)
+    || (walk(el, (e) => e.tagName === 'DIALOG') && 'dialog')
+    || (walk(el, (e) => e.tagName && e.tagName.includes('-') && e.tagName.toLowerCase()))
+    || ['nav', 'header', 'footer', 'aside'].find((t) => el.closest(t))
+    || walk(el, (e) => e.id && `#${CSS.escape(e.id)}`));
+}
+
+/**
+ * Get source element type (copied from reference implementation)
+ * @param {Element} el - The element
+ * @returns {string} The element type
+ */
+function getSourceElement(el) {
+  const f = el.closest('form');
+  if (f && Array.from(f.elements).includes(el)) {
+    return (el.tagName.toLowerCase()
+      + (['INPUT', 'BUTTON'].includes(el.tagName)
+        ? `[type='${el.getAttribute('type') || ''}']`
+        : ''));
+  }
+  if (walk(el, (e) => e.tagName === 'BUTTON' || (e.tagName === 'INPUT' && e.getAttribute('type') === 'button'))) return 'button';
+  return el.tagName.toLowerCase().match(/^(a|img|video|form)$/) && el.tagName.toLowerCase();
+}
+
+/**
+ * Get source identifier for an element (copied from reference implementation)
+ * @param {Element} el - The element
+ * @returns {string} The identifier
+ */
+function getSourceIdentifier(el) {
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  if (el.getAttribute('data-block-name')) return `.${el.getAttribute('data-block-name')}`;
+  return (el.classList.length > 0 && `.${CSS.escape(el.classList[0])}`);
+}
+
+/**
+ * Create source selector for form elements (copied from reference implementation)
+ * @param {Element} el - The form element
+ * @returns {string} The source selector
+ */
+function createSourceSelector(el) {
+  try {
+    if (!el || el === document.body || el === document.documentElement) {
+      return undefined;
+    }
+    if (el.getAttribute('data-rum-source')) {
+      return el.getAttribute('data-rum-source');
+    }
+    const ctx = getSourceContext(el.parentElement) || '';
+    const name = getSourceElement(el) || '';
+    const id = getSourceIdentifier(el) || '';
+    return `${ctx} ${name}${id}`.trim() || `"${el.textContent.substring(0, 10)}"`;
+  } catch (error) {
+    return null;
+  }
 }
 
 /**
