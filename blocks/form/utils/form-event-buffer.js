@@ -316,22 +316,11 @@ function getSubmitType(el) {
   return 'formsubmit';
 }
 
-/**
- * Get target value for an element (copied from reference implementation)
- * @param {Element} el - The element
- * @returns {string} The target value
- */
-function getTargetValue(el) {
-  return el.getAttribute('data-rum-target') || el.getAttribute('href')
-    || el.currentSrc || el.getAttribute('src') || el.dataset.action || el.action;
-}
+// Exact copy from rum-enhancer dom.js
+const getTargetValue = (el) => el.getAttribute('data-rum-target') || el.getAttribute('href')
+  || el.currentSrc || el.getAttribute('src') || el.dataset.action || el.action;
 
-/**
- * Create target selector for form elements (copied from reference implementation)
- * @param {Element} el - The form element
- * @returns {string} The target selector
- */
-function createTargetSelector(el) {
+const targetSelector = (el) => {
   try {
     if (!el) return undefined;
     let v = getTargetValue(el);
@@ -343,29 +332,20 @@ function createTargetSelector(el) {
       v = new URL(v, window.location).href;
     }
     return v;
+    /* c8 ignore next 3 */
   } catch (error) {
     return null;
   }
-}
+};
 
-/**
- * Walk up the DOM tree to find context
- * @param {Element} el - The element
- * @param {Function} checkFn - Function to check each element
- * @returns {string|undefined} The context
- */
 function walk(el, checkFn) {
   if (!el || el === document.body || el === document.documentElement) {
     return undefined;
   }
+
   return checkFn(el) || walk(el.parentElement || (el.parentNode && el.parentNode.host), checkFn);
 }
 
-/**
- * Check if element is a dialog (copied from reference implementation)
- * @param {Element} el - The element
- * @returns {boolean} True if element is a dialog
- */
 function isDialog(el) {
   // doing it well
   if (el.tagName === 'DIALOG') return true;
@@ -376,11 +356,16 @@ function isDialog(el) {
     || (cs && cs.position === 'fixed' && cs.zIndex > 100);
 }
 
-/**
- * Get source context for an element (copied from reference implementation)
- * @param {Element} el - The element
- * @returns {string} The source context
- */
+function isButton(el) {
+  if (el.tagName === 'BUTTON') return true;
+  if (el.tagName === 'INPUT' && el.getAttribute('type') === 'button') return true;
+  if (el.tagName === 'A') {
+    const classes = Array.from(el.classList);
+    return classes.some((className) => className.match(/button|cta/));
+  }
+  return el.getAttribute('role') === 'button';
+}
+
 function getSourceContext(el) {
   const formEl = el.closest('form');
   if (formEl) {
@@ -398,11 +383,6 @@ function getSourceContext(el) {
     || walk(el, (e) => e.id && `#${CSS.escape(e.id)}`));
 }
 
-/**
- * Get source element type (copied from reference implementation)
- * @param {Element} el - The element
- * @returns {string} The element type
- */
 function getSourceElement(el) {
   const f = el.closest('form');
   if (f && Array.from(f.elements).includes(el)) {
@@ -411,27 +391,17 @@ function getSourceElement(el) {
         ? `[type='${el.getAttribute('type') || ''}']`
         : ''));
   }
-  if (walk(el, (e) => e.tagName === 'BUTTON' || (e.tagName === 'INPUT' && e.getAttribute('type') === 'button'))) return 'button';
+  if (walk(el, isButton)) return 'button';
   return el.tagName.toLowerCase().match(/^(a|img|video|form)$/) && el.tagName.toLowerCase();
 }
 
-/**
- * Get source identifier for an element (copied from reference implementation)
- * @param {Element} el - The element
- * @returns {string} The identifier
- */
 function getSourceIdentifier(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
   if (el.getAttribute('data-block-name')) return `.${el.getAttribute('data-block-name')}`;
   return (el.classList.length > 0 && `.${CSS.escape(el.classList[0])}`);
 }
 
-/**
- * Create source selector for form elements (copied from reference implementation)
- * @param {Element} el - The form element
- * @returns {string} The source selector
- */
-function createSourceSelector(el) {
+const sourceSelector = (el) => {
   try {
     if (!el || el === document.body || el === document.documentElement) {
       return undefined;
@@ -442,24 +412,28 @@ function createSourceSelector(el) {
     const ctx = getSourceContext(el.parentElement) || '';
     const name = getSourceElement(el) || '';
     const id = getSourceIdentifier(el) || '';
-    const result = `${ctx} ${name}${id}`.trim() || `"${el.textContent.substring(0, 10)}"`;
-    
-    // Debug logging to compare with regular RUM
-    console.log('🔍 createSourceSelector debug:', {
-      element: el,
-      tagName: el.tagName,
-      className: el.className,
-      id: el.id,
-      ctx,
-      name,
-      id: id,
-      result
-    });
-    
-    return result;
+    return `${ctx} ${name}${id}`.trim() || `"${el.textContent.substring(0, 10)}"`;
+    /* c8 ignore next 3 */
   } catch (error) {
     return null;
   }
+};
+
+// Wrapper functions to maintain compatibility
+function createSourceSelector(el) {
+  const result = sourceSelector(el);
+  console.log('🔍 createSourceSelector debug:', {
+    element: el,
+    tagName: el?.tagName,
+    className: el?.className,
+    id: el?.id,
+    result
+  });
+  return result;
+}
+
+function createTargetSelector(el) {
+  return targetSelector(el);
 }
 
 /**
