@@ -398,7 +398,12 @@ function getSourceElement(el) {
 function getSourceIdentifier(el) {
   if (el.id) return `#${CSS.escape(el.id)}`;
   if (el.getAttribute('data-block-name')) return `.${el.getAttribute('data-block-name')}`;
-  return (el.classList.length > 0 && `.${CSS.escape(el.classList[0])}`);
+  
+  // Filter out temporary/state classes that shouldn't be part of the selector
+  const excludedClasses = ['loading', 'submitting', 'error', 'success', 'disabled'];
+  const validClasses = Array.from(el.classList).filter(cls => !excludedClasses.includes(cls));
+  
+  return (validClasses.length > 0 && `.${CSS.escape(validClasses[0])}`);
 }
 
 const sourceSelector = (el) => {
