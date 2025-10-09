@@ -502,37 +502,67 @@ function createTargetSelector(el) {
 function addListenersToForm(form) {
   console.log('🔍 Adding listeners to form:', form);
   
-  // Form submit listener
-  form.addEventListener('submit', (submitEvent) => {
-    console.log('📝 Direct form submit event:', submitEvent.target);
-    const submitType = getSubmitType(submitEvent.target);
-    const source = createSourceSelector(submitEvent.target);
-    const target = createTargetSelector(submitEvent.target);
-    
-    // Buffer the submit event
-    bufferEvent({
-      checkpoint: submitType,
-      data: { source, target },
-      timestamp: Date.now()
-    });
-    
-    // Only flush buffered events if this is a formsubmit checkpoint
-    if (submitType === FORM_SUBMIT_FLUSH_CHECKPOINT) {
-      console.log('🚀 Direct formsubmit detected, flushing buffer');
-      const allBufferedEvents = getBufferedEvents();
-      if (allBufferedEvents.length > 0) {
-        console.log('📤 Flushing', allBufferedEvents.length, 'buffered events on direct formsubmit');
-        allBufferedEvents.forEach(bufferedEvent => {
-          if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
-            window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
-          }
+    // Form submit listener (exact copy from rum-enhancer)
+    form.addEventListener('submit', (submitEvent) => {
+      console.log('📝 Direct form submit event:', submitEvent.target);
+      
+      // Check for form validation errors before submitting (exact copy from rum-enhancer)
+      const invalidFields = form.querySelectorAll(':invalid');
+      // Send error checkpoints for each invalid field (exact copy from rum-enhancer)
+      invalidFields.forEach((field) => {
+        if (field && field.validity) {
+          const prototype = Object.getPrototypeOf(field.validity);
+          const errorType = prototype
+            ? Object.keys(Object.getOwnPropertyDescriptors(prototype))
+              .filter((key) => key !== 'valid' && key !== 'constructor' && !key.startsWith('Symbol'))
+              .find((key) => field.validity[key]) || 'custom'
+            : 'custom';
+
+          console.log('📝 Form validation error detected:', { errorType, field });
+          bufferEvent({
+            checkpoint: 'error',
+            data: {
+              target: errorType,
+              source: createSourceSelector(field),
+            },
+            timestamp: Date.now()
+          });
+        }
+      });
+      
+      // Only send formsubmit event if there are no validation errors (exact copy from rum-enhancer)
+      if (invalidFields.length === 0) {
+        const submitType = getSubmitType(submitEvent.target);
+        const source = createSourceSelector(submitEvent.target);
+        const target = createTargetSelector(submitEvent.target);
+        
+        // Buffer the submit event
+        bufferEvent({
+          checkpoint: submitType,
+          data: { source, target },
+          timestamp: Date.now()
         });
-        clearBufferedEvents();
+        
+        // Only flush buffered events if this is a formsubmit checkpoint
+        if (submitType === FORM_SUBMIT_FLUSH_CHECKPOINT) {
+          console.log('🚀 Direct formsubmit detected, flushing buffer');
+          const allBufferedEvents = getBufferedEvents();
+          if (allBufferedEvents.length > 0) {
+            console.log('📤 Flushing', allBufferedEvents.length, 'buffered events on direct formsubmit');
+            allBufferedEvents.forEach(bufferedEvent => {
+              if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
+                window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+              }
+            });
+            clearBufferedEvents();
+          }
+        } else {
+          console.log('📝 Form submit detected but not formsubmit, not flushing buffer:', submitType);
+        }
+      } else {
+        console.log('📝 Form has validation errors, not sending formsubmit event');
       }
-    } else {
-      console.log('📝 Form submit detected but not formsubmit, not flushing buffer:', submitType);
-    }
-  }, { once: true });
+    }, { once: true });
   
   // Form field change listener (fill events)
   let lastSource;
