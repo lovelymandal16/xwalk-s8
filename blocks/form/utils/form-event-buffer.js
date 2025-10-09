@@ -32,7 +32,8 @@ const FORM_CHECKPOINTS = [
   'formsubmit',  // Generic form submissions
   'search',      // Search form submissions
   'login',       // Login form submissions
-  'signup'       // Signup form submissions
+  'signup',      // Signup form submissions
+  'error'        // Form validation errors and focus loss
 ];
 
 // Only formsubmit checkpoint triggers buffer flush
@@ -248,6 +249,17 @@ function isFormFullyLoaded(element, eventType = 'default') {
       return false;
     }
     // Allow viewblock events even if form is loading, as visibility is about user seeing the form
+    return true;
+  }
+  
+  // For error events, we're also lenient because errors can occur at any time
+  if (eventType === 'error') {
+    // Only skip if form is in a critical processing state
+    if (form.classList.contains('submitting') || form.classList.contains('processing')) {
+      console.log('🔍 Form is in critical processing state, skipping error event capture:', form);
+      return false;
+    }
+    // Allow error events even if form is loading, as validation errors can occur during loading
     return true;
   }
   
