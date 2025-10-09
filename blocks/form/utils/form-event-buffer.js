@@ -139,10 +139,11 @@ function bufferEvent(eventData) {
     }
     
     // Add the event
-    data.events.push({
+    const bufferedEvent = {
       ...eventData,
       bufferedAt: Date.now()
-    });
+    };
+    data.events.push(bufferedEvent);
     
     // Limit the number of buffered events for the session
     if (data.events.length > MAX_BUFFER_SIZE) {
@@ -150,6 +151,14 @@ function bufferEvent(eventData) {
     }
     
     localStorage.setItem(bufferKey, JSON.stringify(data));
+    
+    // Debug: Log the buffered event
+    console.log('📝 Event buffered in localStorage:', {
+      checkpoint: eventData.checkpoint,
+      data: eventData.data,
+      bufferKey,
+      totalEvents: data.events.length
+    });
   } catch (e) {
     console.warn('Failed to buffer form event:', e);
   }
@@ -228,7 +237,7 @@ function isInsideForm(element) {
  * @param {Object} data - The event data
  */
 function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
-  console.log('🔍 Enhanced sampleRUM called:', { checkpoint, data });
+  console.log('🔍 Enhanced sampleRUM called (RUM not selected):', { checkpoint, data });
   
   // Check if this is a form-related checkpoint
   const isFormCheckpoint = FORM_CHECKPOINTS.includes(checkpoint);
@@ -237,7 +246,7 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
   
   // Buffer form-related events
   if (isFormCheckpoint || isFormRelated) {
-    console.log('📝 Buffering form event:', { checkpoint, isFormCheckpoint, isFormRelated });
+    console.log('📝 Buffering form event via sampleRUM:', { checkpoint, isFormCheckpoint, isFormRelated });
     bufferEvent({
       checkpoint,
       data,
@@ -260,6 +269,8 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
         clearBufferedEvents();
       }
     }
+  } else {
+    console.log('📝 Non-form event, not buffering:', { checkpoint, isFormCheckpoint, isFormRelated });
   }
   
   return originalSampleRUM(checkpoint, data);
@@ -576,6 +587,36 @@ function debugLocalStorage() {
 }
 
 /**
+ * Debug function to simulate form events for testing
+ */
+function debugSimulateFormEvents() {
+  console.log('🧪 Simulating form events for debugging...');
+  
+  // Simulate a viewblock event
+  bufferEvent({
+    checkpoint: 'viewblock',
+    data: { source: 'form', target: 'form' },
+    timestamp: Date.now()
+  });
+  
+  // Simulate a click event
+  bufferEvent({
+    checkpoint: 'click',
+    data: { source: 'form input[type="text"]' },
+    timestamp: Date.now()
+  });
+  
+  // Simulate a fill event
+  bufferEvent({
+    checkpoint: 'fill',
+    data: { source: 'form input[type="text"]' },
+    timestamp: Date.now()
+  });
+  
+  console.log('🧪 Simulated events added. Check localStorage with: window.debugFormEventBuffer()');
+}
+
+/**
  * Initialize form event buffer plugin
  * @param {Object} config - Plugin configuration
  * @param {Function} config.sampleRUM - The sampleRUM function
@@ -609,9 +650,11 @@ export default function addFormEventBuffer({ sampleRUM, context = document.body 
   // Clean up expired events periodically
   setInterval(cleanupExpiredBuffer, 30 * 60 * 1000);
   
-  // Add debug function to window for easy access
+  // Add debug functions to window for easy access
   window.debugFormEventBuffer = debugLocalStorage;
+  window.debugSimulateFormEvents = debugSimulateFormEvents;
   
   console.log('✅ Form Event Buffer Plugin: Initialized successfully (RUM not selected)');
   console.log('🔍 You can check localStorage with: window.debugFormEventBuffer()');
+  console.log('🧪 You can simulate events with: window.debugSimulateFormEvents()');
 }
