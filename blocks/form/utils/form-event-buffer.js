@@ -589,10 +589,16 @@ export default function addFormEventBuffer({ sampleRUM, context = document.body 
     context: context
   });
   
+  // Only activate the plugin if RUM is NOT selected (not sampled)
+  if (window.hlx?.rum?.isSelected === true) {
+    console.log('📊 RUM is selected (sampled), Form Event Buffer Plugin will not activate');
+    return;
+  }
+  
   // Store the original sampleRUM function
   const originalSampleRUM = window.sampleRUM || sampleRUM;
   
-  // Override the sampleRUM function
+  // Override the sampleRUM function only when RUM is not selected
   window.sampleRUM = (checkpoint, data) => {
     return enhancedSampleRUM(originalSampleRUM, checkpoint, data);
   };
@@ -606,6 +612,6 @@ export default function addFormEventBuffer({ sampleRUM, context = document.body 
   // Add debug function to window for easy access
   window.debugFormEventBuffer = debugLocalStorage;
   
-  console.log('✅ Form Event Buffer Plugin: Initialized successfully');
+  console.log('✅ Form Event Buffer Plugin: Initialized successfully (RUM not selected)');
   console.log('🔍 You can check localStorage with: window.debugFormEventBuffer()');
 }

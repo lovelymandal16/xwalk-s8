@@ -537,7 +537,7 @@ export default async function decorate(block) {
         console.warn('⚠️ Failed to load Form Event Buffer Plugin:', error);
       }
     } else {
-      console.log('📊 RUM is selected, skipping Form Event Buffer Plugin');
+      console.log('📊 RUM is selected (sampled), Form Event Buffer Plugin will not load');
     }
     const submitProps = formDef?.properties?.['fd:submit'];
     const actionType = submitProps?.actionName || formDef?.properties?.actionType;
