@@ -523,7 +523,22 @@ export default async function decorate(block) {
   let form;
   if (formDef) {
     // Load form event buffer plugin only when RUM is not selected (not sampled)
-    
+    if (window.hlx?.rum?.isSelected === false) {
+      try {
+        const formEventBuffer = await import('./utils/form-event-buffer.js');
+        if (formEventBuffer.default) {
+          formEventBuffer.default({ 
+            sampleRUM: window.sampleRUM, 
+            context: block 
+          });
+          console.log('✅ Form Event Buffer Plugin loaded successfully (RUM not selected)');
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to load Form Event Buffer Plugin:', error);
+      }
+    } else {
+      console.log('📊 RUM is selected (sampled), Form Event Buffer Plugin will not load');
+    }
     const submitProps = formDef?.properties?.['fd:submit'];
     const actionType = submitProps?.actionName || formDef?.properties?.actionType;
     const spreadsheetUrl = submitProps?.spreadsheet?.spreadsheetUrl
