@@ -327,7 +327,33 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
             });
             
             try {
-              window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+              // Check if collector is a queue function or the actual trackCheckpoint
+              const collectorStr = window.hlx.rum.collector.toString();
+              if (collectorStr.includes('queue.push')) {
+                console.log('🔍 Collector is a queue function, processing queue manually');
+                // Call the collector to add to queue
+                window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+                
+                // Process the queue manually if it exists
+                if (window.hlx.rum.queue && Array.isArray(window.hlx.rum.queue)) {
+                  console.log('🔍 Processing RUM queue manually:', window.hlx.rum.queue.length, 'items');
+                  // Process each item in the queue
+                  window.hlx.rum.queue.forEach((queueItem, index) => {
+                    console.log(`🔍 Processing queue item ${index}:`, queueItem);
+                    // Try to call the actual trackCheckpoint function if available
+                    if (window.hlx.rum.trackCheckpoint) {
+                      window.hlx.rum.trackCheckpoint(...queueItem);
+                    } else {
+                      console.warn('⚠️ trackCheckpoint function not available, queue item not processed');
+                    }
+                  });
+                  // Clear the queue after processing
+                  window.hlx.rum.queue.length = 0;
+                }
+              } else {
+                // Direct collector call
+                window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+              }
               console.log('✅ RUM collector called successfully');
             } catch (error) {
               console.error('❌ Error calling RUM collector:', error);
@@ -582,7 +608,33 @@ function addListenersToForm(form) {
                 });
                 
                 try {
-                  window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+                  // Check if collector is a queue function or the actual trackCheckpoint
+                  const collectorStr = window.hlx.rum.collector.toString();
+                  if (collectorStr.includes('queue.push')) {
+                    console.log('🔍 Collector is a queue function, processing queue manually');
+                    // Call the collector to add to queue
+                    window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+                    
+                    // Process the queue manually if it exists
+                    if (window.hlx.rum.queue && Array.isArray(window.hlx.rum.queue)) {
+                      console.log('🔍 Processing RUM queue manually:', window.hlx.rum.queue.length, 'items');
+                      // Process each item in the queue
+                      window.hlx.rum.queue.forEach((queueItem, index) => {
+                        console.log(`🔍 Processing queue item ${index}:`, queueItem);
+                        // Try to call the actual trackCheckpoint function if available
+                        if (window.hlx.rum.trackCheckpoint) {
+                          window.hlx.rum.trackCheckpoint(...queueItem);
+                        } else {
+                          console.warn('⚠️ trackCheckpoint function not available, queue item not processed');
+                        }
+                      });
+                      // Clear the queue after processing
+                      window.hlx.rum.queue.length = 0;
+                    }
+                  } else {
+                    // Direct collector call
+                    window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+                  }
                   console.log('✅ RUM collector called successfully (direct)');
                 } catch (error) {
                   console.error('❌ Error calling RUM collector (direct):', error);
