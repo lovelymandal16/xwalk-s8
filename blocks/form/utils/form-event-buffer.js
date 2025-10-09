@@ -350,37 +350,36 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
                         const [checkpoint, data, timestamp] = queueItem;
                         const { weight, id } = window.hlx.rum;
                         
-                        // Create the request body (simplified version of rum-enhancer trackCheckpoint)
+                        // Create the request body (exact copy from rum-enhancer trackCheckpoint)
                         const body = JSON.stringify({
                           weight,
                           id,
-                          referer: window.location.pathname,
+                          referer: window.location.pathname, // Simplified referer
                           checkpoint,
                           t: timestamp,
                           ...data
                         });
                         
-                        // Create the URL
-                        const url = `/.rum/${weight}`;
+                        // Create the URL (exact copy from rum-enhancer)
+                        const urlParams = window.RUM_PARAMS ? `?${new URLSearchParams(window.RUM_PARAMS).toString()}` : '';
+                        const baseURL = window.sampleRUM?.collectBaseURL || window.location.origin;
+                        const { href: url, origin } = new URL(`.rum/${weight}${urlParams.length > 1 ? urlParams : ''}`, baseURL);
                         
                         console.log('📤 Sending direct API call to:', url, 'with data:', body);
                         
-                        // Send using navigator.sendBeacon (same as rum-enhancer)
-                        if (navigator.sendBeacon) {
-                          const success = navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+                        // Send using navigator.sendBeacon (exact copy from rum-enhancer)
+                        if (window.location.origin === origin) {
+                          const headers = { type: 'application/json' };
+                          const success = navigator.sendBeacon(url, new Blob([body], headers));
                           console.log('✅ sendBeacon result:', success);
                         } else {
-                          console.warn('⚠️ sendBeacon not available, using fetch fallback');
-                          fetch(url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: body
-                          }).then(response => {
-                            console.log('✅ fetch result:', response.status);
-                          }).catch(error => {
-                            console.error('❌ fetch error:', error);
-                          });
+                          const success = navigator.sendBeacon(url, body);
+                          console.log('✅ sendBeacon result (cross-origin):', success);
                         }
+                        
+                        // Log the ping (same as rum-enhancer)
+                        console.debug(`ping:${checkpoint}`, data);
+                        
                       } catch (error) {
                         console.error('❌ Error in direct API call:', error);
                       }
@@ -670,37 +669,36 @@ function addListenersToForm(form) {
                             const [checkpoint, data, timestamp] = queueItem;
                             const { weight, id } = window.hlx.rum;
                             
-                            // Create the request body (simplified version of rum-enhancer trackCheckpoint)
+                            // Create the request body (exact copy from rum-enhancer trackCheckpoint)
                             const body = JSON.stringify({
                               weight,
                               id,
-                              referer: window.location.pathname,
+                              referer: window.location.pathname, // Simplified referer
                               checkpoint,
                               t: timestamp,
                               ...data
                             });
                             
-                            // Create the URL
-                            const url = `/.rum/${weight}`;
+                            // Create the URL (exact copy from rum-enhancer)
+                            const urlParams = window.RUM_PARAMS ? `?${new URLSearchParams(window.RUM_PARAMS).toString()}` : '';
+                            const baseURL = window.sampleRUM?.collectBaseURL || window.location.origin;
+                            const { href: url, origin } = new URL(`.rum/${weight}${urlParams.length > 1 ? urlParams : ''}`, baseURL);
                             
                             console.log('📤 Sending direct API call to:', url, 'with data:', body);
                             
-                            // Send using navigator.sendBeacon (same as rum-enhancer)
-                            if (navigator.sendBeacon) {
-                              const success = navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+                            // Send using navigator.sendBeacon (exact copy from rum-enhancer)
+                            if (window.location.origin === origin) {
+                              const headers = { type: 'application/json' };
+                              const success = navigator.sendBeacon(url, new Blob([body], headers));
                               console.log('✅ sendBeacon result:', success);
                             } else {
-                              console.warn('⚠️ sendBeacon not available, using fetch fallback');
-                              fetch(url, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: body
-                              }).then(response => {
-                                console.log('✅ fetch result:', response.status);
-                              }).catch(error => {
-                                console.error('❌ fetch error:', error);
-                              });
+                              const success = navigator.sendBeacon(url, body);
+                              console.log('✅ sendBeacon result (cross-origin):', success);
                             }
+                            
+                            // Log the ping (same as rum-enhancer)
+                            console.debug(`ping:${checkpoint}`, data);
+                            
                           } catch (error) {
                             console.error('❌ Error in direct API call:', error);
                           }
