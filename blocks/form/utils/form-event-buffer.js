@@ -231,6 +231,30 @@ function isInsideForm(element) {
 }
 
 /**
+ * Check if a form is fully loaded (not in loading state)
+ * @param {Element} element - The element to check
+ * @returns {boolean} True if form is fully loaded
+ */
+function isFormFullyLoaded(element) {
+  const form = element.closest('form');
+  if (!form) return true; // Not a form element, consider it "loaded"
+  
+  // Check if form has loading class
+  if (form.classList.contains('loading')) {
+    console.log('🔍 Form is still loading, skipping event capture:', form);
+    return false;
+  }
+  
+  // Check if form has other loading indicators
+  if (form.classList.contains('submitting') || form.classList.contains('processing')) {
+    console.log('🔍 Form is in processing state, skipping event capture:', form);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Enhanced sampleRUM function that buffers form events when not sampled
  * @param {Function} originalSampleRUM - The original sampleRUM function
  * @param {string} checkpoint - The checkpoint name
@@ -244,8 +268,14 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
   const element = findElementFromData(data);
   const isFormRelated = element && isInsideForm(element);
   
-  // Buffer form-related events
+  // Buffer form-related events only if form is fully loaded
   if (isFormCheckpoint || isFormRelated) {
+    // Check if form is fully loaded before capturing events
+    if (!isFormFullyLoaded(element)) {
+      console.log('📝 Form not fully loaded, skipping event capture:', { checkpoint, element });
+      return originalSampleRUM(checkpoint, data);
+    }
+    
     console.log('📝 Buffering form event via sampleRUM:', { checkpoint, isFormCheckpoint, isFormRelated });
     bufferEvent({
       checkpoint,
@@ -484,6 +514,13 @@ function addListenersToForm(form) {
   let lastSource;
   form.addEventListener('change', (changeEvent) => {
     console.log('📝 Direct form change event:', changeEvent.target);
+    
+    // Check if form is fully loaded before capturing events
+    if (!isFormFullyLoaded(changeEvent.target)) {
+      console.log('📝 Form not fully loaded, skipping change event capture');
+      return;
+    }
+    
     if (changeEvent.target.checkVisibility && changeEvent.target.checkVisibility()) {
       const source = createSourceSelector(changeEvent.target);
       if (source !== lastSource) {
@@ -500,6 +537,13 @@ function addListenersToForm(form) {
   // Form field focus listener (click events)
   form.addEventListener('focusin', (focusEvent) => {
     console.log('📝 Direct form focus event:', focusEvent.target);
+    
+    // Check if form is fully loaded before capturing events
+    if (!isFormFullyLoaded(focusEvent.target)) {
+      console.log('📝 Form not fully loaded, skipping focus event capture');
+      return;
+    }
+    
     if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(focusEvent.target.tagName)
       || focusEvent.target.getAttribute('contenteditable') === 'true') {
       const source = createSourceSelector(focusEvent.target);
@@ -518,6 +562,13 @@ function addListenersToForm(form) {
         .filter((e) => e.isIntersecting)
         .forEach((e) => {
           observer.unobserve(e.target);
+          
+          // Check if form is fully loaded before capturing events
+          if (!isFormFullyLoaded(e.target)) {
+            console.log('📝 Form not fully loaded, skipping viewblock event capture');
+            return;
+          }
+          
           const source = createSourceSelector(e.target);
           const target = createTargetSelector(e.target);
           console.log('📝 Direct form viewblock event:', e.target);
