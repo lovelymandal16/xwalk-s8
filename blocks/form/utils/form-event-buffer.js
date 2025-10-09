@@ -318,9 +318,27 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
         allBufferedEvents.forEach(bufferedEvent => {
           if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
             console.log('📤 Sending buffered event to RUM collector:', bufferedEvent);
-            window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+            console.log('🔍 RUM collector function:', window.hlx.rum.collector);
+            console.log('🔍 RUM system state:', {
+              isSelected: window.hlx.rum.isSelected,
+              weight: window.hlx.rum.weight,
+              id: window.hlx.rum.id,
+              collectorType: typeof window.hlx.rum.collector
+            });
+            
+            try {
+              window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+              console.log('✅ RUM collector called successfully');
+            } catch (error) {
+              console.error('❌ Error calling RUM collector:', error);
+            }
           } else {
             console.warn('⚠️ RUM collector not available for buffered event:', bufferedEvent);
+            console.log('🔍 RUM system state:', {
+              hasHlx: !!window.hlx,
+              hasRum: !!(window.hlx && window.hlx.rum),
+              hasCollector: !!(window.hlx && window.hlx.rum && window.hlx.rum.collector)
+            });
           }
         });
         clearBufferedEvents();
@@ -555,9 +573,27 @@ function addListenersToForm(form) {
             allBufferedEvents.forEach(bufferedEvent => {
               if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
                 console.log('📤 Sending buffered event to RUM collector (direct):', bufferedEvent);
-                window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+                console.log('🔍 RUM collector function (direct):', window.hlx.rum.collector);
+                console.log('🔍 RUM system state (direct):', {
+                  isSelected: window.hlx.rum.isSelected,
+                  weight: window.hlx.rum.weight,
+                  id: window.hlx.rum.id,
+                  collectorType: typeof window.hlx.rum.collector
+                });
+                
+                try {
+                  window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+                  console.log('✅ RUM collector called successfully (direct)');
+                } catch (error) {
+                  console.error('❌ Error calling RUM collector (direct):', error);
+                }
               } else {
                 console.warn('⚠️ RUM collector not available for buffered event (direct):', bufferedEvent);
+                console.log('🔍 RUM system state (direct):', {
+                  hasHlx: !!window.hlx,
+                  hasRum: !!(window.hlx && window.hlx.rum),
+                  hasCollector: !!(window.hlx && window.hlx.rum && window.hlx.rum.collector)
+                });
               }
             });
             clearBufferedEvents();
