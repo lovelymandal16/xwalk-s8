@@ -304,7 +304,7 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
     bufferEvent({
       checkpoint,
       data,
-      timestamp: Date.now()
+      timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
     });
     
     // Check if this is the specific formsubmit checkpoint that should trigger buffer flush
@@ -625,7 +625,7 @@ function addListenersToForm(form) {
               target: errorType,
               source: createSourceSelector(field),
             },
-            timestamp: Date.now()
+            timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
           });
         }
       });
@@ -640,7 +640,7 @@ function addListenersToForm(form) {
         bufferEvent({
           checkpoint: submitType,
           data: { source, target },
-          timestamp: Date.now()
+          timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
         });
         
         // Only flush buffered events if this is a formsubmit checkpoint
@@ -781,7 +781,7 @@ function addListenersToForm(form) {
         bufferEvent({
           checkpoint: 'fill',
           data: { source },
-          timestamp: Date.now()
+          timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
         });
         lastSource = source;
       }
@@ -804,7 +804,7 @@ function addListenersToForm(form) {
       bufferEvent({
         checkpoint: 'click',
         data: { source },
-        timestamp: Date.now()
+        timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
       });
     }
   });
@@ -829,7 +829,7 @@ function addListenersToForm(form) {
           bufferEvent({
             checkpoint: 'viewblock',
             data: { source, target },
-            timestamp: Date.now()
+            timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
           });
         });
     });
@@ -909,21 +909,21 @@ function debugSimulateFormEvents() {
   bufferEvent({
     checkpoint: 'viewblock',
     data: { source: 'form', target: 'form' },
-    timestamp: Date.now()
+    timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
   });
   
   // Simulate a click event
   bufferEvent({
     checkpoint: 'click',
     data: { source: 'form input[type="text"]' },
-    timestamp: Date.now()
+    timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
   });
   
   // Simulate a fill event
   bufferEvent({
     checkpoint: 'fill',
     data: { source: 'form input[type="text"]' },
-    timestamp: Date.now()
+    timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
   });
   
   console.log('🧪 Simulated events added. Check localStorage with: window.debugFormEventBuffer()');
