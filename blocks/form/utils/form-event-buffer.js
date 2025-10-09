@@ -1,10 +1,18 @@
 /**
- * Form Event Buffer Plugin - Loads Official Helix RUM Enhancer Plugins
+ * Form Event Buffer Plugin
  * 
- * This plugin loads the official helix-rum-enhancer plugins when RUM is not selected,
- * allowing them to handle all form event tracking automatically.
+ * This plugin buffers form-related events in localStorage when they're not sampled by RUM,
+ * and flushes all buffered events when the form is submitted (if formsubmit is also not sampled).
+ * This ensures we don't lose form interaction data due to RUM sampling.
  * 
- * Based on the approach from helix-rum-js/src/form-tracker.js
+ * Form-specific checkpoints tracked:
+ * - fill: Form field changes
+ * - click: Form field focus events
+ * - viewblock: Form visibility events
+ * - formsubmit: Generic form submissions
+ * - search: Search form submissions
+ * - login: Login form submissions
+ * - signup: Signup form submissions
  */
 
 console.log('📦 Form Event Buffer Plugin: File loaded');
@@ -12,53 +20,914 @@ console.log('🔍 Debug: Current URL:', window.location.href);
 console.log('🔍 Debug: Forms on page:', document.querySelectorAll('form').length);
 console.log('🔍 Debug: RUM system available:', !!(window.hlx && window.hlx.rum));
 
+const BUFFER_KEY = 'helix-rum-form-buffer';
+const MAX_BUFFER_SIZE = 50; // Maximum number of events to buffer per session
+const BUFFER_EXPIRY = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+
+// Form-specific checkpoints to track
+const FORM_CHECKPOINTS = [
+  'fill',        // Form field changes
+  'click',       // Form field focus events
+  'viewblock',   // Form visibility events
+  'formsubmit',  // Generic form submissions
+  'search',      // Search form submissions
+  'login',       // Login form submissions
+  'signup',      // Signup form submissions
+  'error'        // Form validation errors and focus loss
+];
+
+// Only formsubmit checkpoint triggers buffer flush
+const FORM_SUBMIT_FLUSH_CHECKPOINT = 'formsubmit';
+
 /**
- * Load helix-rum-enhancer when RUM is not selected
- * Based on the sampleRUM.enhance approach
+ * Check if localStorage is available and supported
+ * @returns {boolean} True if localStorage is available
  */
-async function loadHelixRumEnhancerPlugins(context) {
-  console.log('🔍 Loading helix-rum-enhancer...');
-  
-  // Disable automatic rum-enhancer loading to prevent conflicts
-  (window.hlx = window.hlx || {}).RUM_MANUAL_ENHANCE = true;
-  
+function isLocalStorageAvailable() {
   try {
-    // Create sampleRUM function if it doesn't exist
-    if (!window.sampleRUM) {
-      window.sampleRUM = function(checkpoint, data) {
-        // Basic sampleRUM implementation for non-sampled users
-        console.log('📊 sampleRUM:', checkpoint, data);
-      };
-    }
-    
-    // Set up base URLs
-    window.sampleRUM.baseURL = window.sampleRUM.baseURL || new URL(window.RUM_BASE || '/', new URL('https://rum.hlx.page'));
-    window.sampleRUM.collectBaseURL = window.sampleRUM.collectBaseURL || window.sampleRUM.baseURL;
-    
-    // Load the RUM enhancer
-    const { enhancerVersion, enhancerHash } = window.sampleRUM.enhancerContext || {};
-    const script = document.createElement('script');
-    if (enhancerHash) {
-      script.integrity = enhancerHash;
-      script.setAttribute('crossorigin', 'anonymous');
-    }
-    script.src = new URL(`.rum/@adobe/helix-rum-enhancer@${enhancerVersion || '^2'}/src/index.js`, window.sampleRUM.baseURL).href;
-    
-    // Wait for script to load
-    await new Promise((resolve, reject) => {
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-    
-    console.log('✅ Helix RUM Enhancer loaded successfully');
-    
-  } catch (error) {
-    console.error('❌ Failed to load helix-rum-enhancer:', error);
-    throw error;
+    const test = '__localStorage_test__';
+    localStorage.setItem(test, test);
+    localStorage.removeItem(test);
+    console.log('🔍 isLocalStorageAvailable:', test);
+    return true;
+  } catch (e) {
+    console.log('🔍 isLocalStorageAvailable:', e);
+    return false;
   }
 }
 
+/**
+ * Get RUM session ID with proper null checks and browser compatibility
+ * @returns {string} RUM session ID
+ */
+function getRumSessionId() {
+  try {
+    // Check if window.hlx exists and has rum property
+    if (window.hlx && window.hlx.rum && window.hlx.rum.id) {
+      return window.hlx.rum.id;
+    }
+  } catch (e) {
+    // Handle cases where window.hlx might not be fully initialized
+    console.warn('RUM session ID not available:', e);
+  }
+  
+  // Fallback to a default session ID
+  return 'default-session';
+}
+
+/**
+ * Get buffer key based on RUM session ID
+ * @returns {string} Buffer key
+ */
+function getBufferKey() {
+  const rumSessionId = getRumSessionId();
+  return `${BUFFER_KEY}-${rumSessionId}`;
+}
+
+/**
+ * Get buffered events from localStorage for the current session
+ * @returns {Array} Array of buffered events
+ */
+function getBufferedEvents() {
+  if (!isLocalStorageAvailable()) {
+    return [];
+  }
+  
+  try {
+    const bufferKey = getBufferKey();
+    const stored = localStorage.getItem(bufferKey);
+    if (!stored) return [];
+    
+    const data = JSON.parse(stored);
+    const now = Date.now();
+    
+    // Check if buffer itself has expired
+    if (data._expiry && now > data._expiry) {
+      localStorage.removeItem(bufferKey);
+      return [];
+    }
+    
+    // Return all events for the session
+    return data.events || [];
+  } catch (e) {
+    console.warn('Failed to get buffered form events:', e);
+    return [];
+  }
+}
+
+/**
+ * Buffer an event in localStorage for the current session
+ * @param {Object} eventData - The event data to buffer
+ */
+function bufferEvent(eventData) {
+  if (!isLocalStorageAvailable()) {
+    return;
+  }
+  
+  try {
+    const bufferKey = getBufferKey();
+    const stored = localStorage.getItem(bufferKey);
+    const data = stored ? JSON.parse(stored) : {};
+    
+    // Set buffer expiry if not set
+    if (!data._expiry) {
+      data._expiry = Date.now() + BUFFER_EXPIRY;
+    }
+    
+    // Initialize events array if not exists
+    if (!data.events) {
+      data.events = [];
+    }
+    
+    // Add the event
+    const bufferedEvent = {
+      ...eventData,
+      bufferedAt: Date.now()
+    };
+    data.events.push(bufferedEvent);
+    
+    // Limit the number of buffered events for the session
+    if (data.events.length > MAX_BUFFER_SIZE) {
+      data.events = data.events.slice(-MAX_BUFFER_SIZE);
+    }
+    
+    localStorage.setItem(bufferKey, JSON.stringify(data));
+    
+    // Debug: Log the buffered event
+    console.log('📝 Event buffered in localStorage:', {
+      checkpoint: eventData.checkpoint,
+      data: eventData.data,
+      bufferKey,
+      totalEvents: data.events.length
+    });
+  } catch (e) {
+    console.warn('Failed to buffer form event:', e);
+  }
+}
+
+/**
+ * Clear buffered events for the current session
+ */
+function clearBufferedEvents() {
+  if (!isLocalStorageAvailable()) {
+    return;
+  }
+  
+  try {
+    const bufferKey = getBufferKey();
+    localStorage.removeItem(bufferKey);
+  } catch (e) {
+    console.warn('Failed to clear buffered form events:', e);
+  }
+}
+
+/**
+ * Single cleanup function - removes expired buffer entries
+ */
+function cleanupExpiredBuffer() {
+  if (!isLocalStorageAvailable()) {
+    return;
+  }
+  
+  try {
+    const bufferKey = getBufferKey();
+    const stored = localStorage.getItem(bufferKey);
+    
+    if (!stored) return;
+    
+    const data = JSON.parse(stored);
+    const now = Date.now();
+    
+    // Check if buffer itself has expired
+    if (data._expiry && now > data._expiry) {
+      localStorage.removeItem(bufferKey);
+      return;
+    }
+    
+    // Clean up expired events
+    if (data.events && Array.isArray(data.events)) {
+      const originalLength = data.events.length;
+      data.events = data.events.filter(event => {
+        return event.bufferedAt && (now - event.bufferedAt) <= BUFFER_EXPIRY;
+      });
+      
+      // If events were removed, update buffer
+      if (data.events.length !== originalLength) {
+        localStorage.setItem(bufferKey, JSON.stringify(data));
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to cleanup expired buffer:', e);
+  }
+}
+
+
+/**
+ * Check if an element is inside a form
+ * @param {Element} element - The element to check
+ * @returns {boolean} True if element is inside a form
+ */
+function isInsideForm(element) {
+  return element.closest('form') !== null;
+}
+
+/**
+ * Check if a form is fully loaded (not in loading state)
+ * @param {Element} element - The element to check
+ * @param {string} eventType - The type of event being checked
+ * @returns {boolean} True if form is fully loaded
+ */
+function isFormFullyLoaded(element, eventType = 'default') {
+  const form = element.closest('form');
+  if (!form) return true; // Not a form element, consider it "loaded"
+  
+  // For viewblock events, we're more lenient because visibility is independent of loading state
+  if (eventType === 'viewblock') {
+    // Only skip if form is in a critical loading state
+    if (form.classList.contains('submitting') || form.classList.contains('processing')) {
+      console.log('🔍 Form is in critical processing state, skipping viewblock event capture:', form);
+      return false;
+    }
+    // Allow viewblock events even if form is loading, as visibility is about user seeing the form
+    return true;
+  }
+  
+  // For error events, we're also lenient because errors can occur at any time
+  if (eventType === 'error') {
+    // Only skip if form is in a critical processing state
+    if (form.classList.contains('submitting') || form.classList.contains('processing')) {
+      console.log('🔍 Form is in critical processing state, skipping error event capture:', form);
+      return false;
+    }
+    // Allow error events even if form is loading, as validation errors can occur during loading
+    return true;
+  }
+  
+  // For other events, be more strict about loading state
+  if (form.classList.contains('loading')) {
+    console.log('🔍 Form is still loading, skipping event capture:', form);
+    return false;
+  }
+  
+  // Check if form has other loading indicators
+  if (form.classList.contains('submitting') || form.classList.contains('processing')) {
+    console.log('🔍 Form is in processing state, skipping event capture:', form);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Enhanced sampleRUM function that buffers form events when not sampled
+ * @param {Function} originalSampleRUM - The original sampleRUM function
+ * @param {string} checkpoint - The checkpoint name
+ * @param {Object} data - The event data
+ */
+function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
+  console.log('🔍 Enhanced sampleRUM called (RUM not selected):', { checkpoint, data });
+  
+  // Check if this is a form-related checkpoint
+  const isFormCheckpoint = FORM_CHECKPOINTS.includes(checkpoint);
+  const element = findElementFromData(data);
+  const isFormRelated = element && isInsideForm(element);
+  
+  // Buffer form-related events only if form is fully loaded
+  if (isFormCheckpoint || isFormRelated) {
+    // Check if form is fully loaded before capturing events
+    if (!isFormFullyLoaded(element)) {
+      console.log('📝 Form not fully loaded, skipping event capture:', { checkpoint, element });
+      return originalSampleRUM(checkpoint, data);
+    }
+    
+    console.log('📝 Buffering form event via sampleRUM:', { checkpoint, isFormCheckpoint, isFormRelated });
+    bufferEvent({
+      checkpoint,
+      data,
+      timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
+    });
+    
+    // Check if this is the specific formsubmit checkpoint that should trigger buffer flush
+    if (checkpoint === FORM_SUBMIT_FLUSH_CHECKPOINT) {
+      console.log('🚀 Formsubmit detected, flushing buffer:', checkpoint);
+      const allBufferedEvents = getBufferedEvents();
+      
+      if (allBufferedEvents.length > 0) {
+        console.log('📤 Flushing', allBufferedEvents.length, 'buffered events');
+        // Flush buffered events directly to RUM collector, bypassing sampling
+        allBufferedEvents.forEach(bufferedEvent => {
+          if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
+            console.log('📤 Sending buffered event to RUM collector:', bufferedEvent);
+            console.log('🔍 RUM collector function:', window.hlx.rum.collector);
+            console.log('🔍 RUM system state:', {
+              isSelected: window.hlx.rum.isSelected,
+              weight: window.hlx.rum.weight,
+              id: window.hlx.rum.id,
+              collectorType: typeof window.hlx.rum.collector
+            });
+            
+            try {
+              // Check if collector is a queue function or the actual trackCheckpoint
+              const collectorStr = window.hlx.rum.collector.toString();
+              if (collectorStr.includes('queue.push')) {
+                console.log('🔍 Collector is a queue function, processing queue manually');
+                // Call the collector to add to queue
+                window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+                
+                // Process the queue manually if it exists
+                if (window.hlx.rum.queue && Array.isArray(window.hlx.rum.queue)) {
+                  console.log('🔍 Processing RUM queue manually:', window.hlx.rum.queue.length, 'items');
+                  // Process each item in the queue
+                  window.hlx.rum.queue.forEach((queueItem, index) => {
+                    console.log(`🔍 Processing queue item ${index}:`, queueItem);
+                    // Try to call the actual trackCheckpoint function if available
+                    if (window.hlx.rum.trackCheckpoint) {
+                      window.hlx.rum.trackCheckpoint(...queueItem);
+                    } else {
+                      // Implement our own trackCheckpoint function based on rum-enhancer
+                      console.log('🔍 trackCheckpoint not available, implementing direct API call');
+                      try {
+                        const [checkpoint, data, timestamp] = queueItem;
+                        const { weight, id } = window.hlx.rum;
+                        
+                        // Create the request body (exact copy from rum-enhancer trackCheckpoint)
+                        // Force weight to 1 to match existing implementation
+                        
+                        // Implement urlSanitizers (copied from rum-enhancer)
+                        const urlSanitizers = {
+                          full: (url = window.location.href) => new URL(url).toString(),
+                          origin: (url = window.location.href) => new URL(url).origin,
+                          path: (url = window.location.href) => {
+                            const u = new URL(url);
+                            return `${u.origin}${u.pathname}`;
+                          }
+                        };
+                        
+                        // KNOWN_PROPERTIES (copied from rum-enhancer)
+                        const KNOWN_PROPERTIES = ['weight', 'id', 'referer', 'checkpoint', 't', 'source', 'target', 'cwv', 'CLS', 'FID', 'LCP', 'INP', 'TTFB'];
+                        
+                        const body = JSON.stringify({
+                          weight: 1, // Force weight to 1 to match existing implementation
+                          id,
+                          referer: urlSanitizers[window.hlx.RUM_MASK_URL || 'path'](), // Use urlSanitizers like rum-enhancer
+                          checkpoint,
+                          t: timestamp,
+                          ...data
+                        }, KNOWN_PROPERTIES); // Use KNOWN_PROPERTIES like rum-enhancer
+                        
+                        // Create the URL (exact copy from rum-enhancer)
+                        const urlParams = window.RUM_PARAMS ? `?${new URLSearchParams(window.RUM_PARAMS).toString()}` : '';
+                        const baseURL = window.sampleRUM?.collectBaseURL || window.location.origin;
+                        const { href: url, origin } = new URL(`.rum/1${urlParams.length > 1 ? urlParams : ''}`, baseURL);
+                        
+                        console.log('📤 Sending direct API call to:', url, 'with data:', body);
+                        
+                        // Send using navigator.sendBeacon (exact copy from rum-enhancer)
+                        if (window.location.origin === origin) {
+                          const headers = { type: 'application/json' };
+                          const success = navigator.sendBeacon(url, new Blob([body], headers));
+                          console.log('✅ sendBeacon result:', success);
+                        } else {
+                          const success = navigator.sendBeacon(url, body);
+                          console.log('✅ sendBeacon result (cross-origin):', success);
+                        }
+                        
+                        // Log the ping (same as rum-enhancer)
+                        console.debug(`ping:${checkpoint}`, data);
+                        
+                      } catch (error) {
+                        console.error('❌ Error in direct API call:', error);
+                      }
+                    }
+                  });
+                  // Clear the queue after processing
+                  window.hlx.rum.queue.length = 0;
+                }
+              } else {
+                // Direct collector call
+                window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+              }
+              console.log('✅ RUM collector called successfully');
+            } catch (error) {
+              console.error('❌ Error calling RUM collector:', error);
+            }
+          } else {
+            console.warn('⚠️ RUM collector not available for buffered event:', bufferedEvent);
+            console.log('🔍 RUM system state:', {
+              hasHlx: !!window.hlx,
+              hasRum: !!(window.hlx && window.hlx.rum),
+              hasCollector: !!(window.hlx && window.hlx.rum && window.hlx.rum.collector)
+            });
+          }
+        });
+        clearBufferedEvents();
+      }
+    }
+  } else {
+    console.log('📝 Non-form event, not buffering:', { checkpoint, isFormCheckpoint, isFormRelated });
+  }
+  
+  return originalSampleRUM(checkpoint, data);
+}
+
+/**
+ * Find element from RUM data (source/target selectors)
+ * @param {Object} data - RUM event data
+ * @returns {Element|null} The element if found
+ */
+function findElementFromData(data) {
+  if (!data || !data.source) return null;
+  
+  try {
+    const element = document.querySelector(data.source);
+    if (element) return element;
+    
+    if (data.target) {
+      return document.querySelector(data.target);
+    }
+  } catch (e) {
+    // Invalid selector, ignore
+  }
+  
+  return null;
+}
+
+/**
+ * Get form submit type (copied from form.js)
+ * @param {Element} el - The form element
+ * @returns {string} The submit type
+ */
+function getSubmitType(el) {
+  if (!el || el.tagName !== 'FORM') return 'formsubmit';
+  // if the form has a search role or a search field, it's a search form
+  if (el.getAttribute('role') === 'search'
+    || el.querySelector('input[type="search"], input[role="searchbox"]')) return 'search';
+  // if the form has one password input, it's a login form
+  // if the form has more than one password input, it's a signup form
+  const pwCount = el.querySelectorAll('input[type="password"]').length;
+  if (pwCount === 1) return 'login';
+  if (pwCount > 1) return 'signup';
+  return 'formsubmit';
+}
+
+// Exact copy from rum-enhancer dom.js
+const getTargetValue = (el) => el.getAttribute('data-rum-target') || el.getAttribute('href')
+  || el.currentSrc || el.getAttribute('src') || el.dataset.action || el.action;
+
+const targetSelector = (el) => {
+  try {
+    if (!el) return undefined;
+    let v = getTargetValue(el);
+    if (!v && el.tagName !== 'A' && el.closest('a')) {
+      v = getTargetValue(el.closest('a'));
+    }
+    if (v && !v.startsWith('https://')) {
+      // resolve relative links
+      v = new URL(v, window.location).href;
+    }
+    return v;
+    /* c8 ignore next 3 */
+  } catch (error) {
+    return null;
+  }
+};
+
+function walk(el, checkFn) {
+  if (!el || el === document.body || el === document.documentElement) {
+    return undefined;
+  }
+
+  return checkFn(el) || walk(el.parentElement || (el.parentNode && el.parentNode.host), checkFn);
+}
+
+function isDialog(el) {
+  // doing it well
+  if (el.tagName === 'DIALOG') return true;
+  // making the best of it
+  const cs = window.getComputedStyle(el);
+  return ['dialog', 'alertdialog'].find((r) => el.getAttribute('role') === r)
+    || el.getAttribute('aria-modal') === 'true'
+    || (cs && cs.position === 'fixed' && cs.zIndex > 100);
+}
+
+function isButton(el) {
+  if (el.tagName === 'BUTTON') return true;
+  if (el.tagName === 'INPUT' && el.getAttribute('type') === 'button') return true;
+  if (el.tagName === 'A') {
+    const classes = Array.from(el.classList);
+    return classes.some((className) => className.match(/button|cta/));
+  }
+  return el.getAttribute('role') === 'button';
+}
+
+function getSourceContext(el) {
+  const formEl = el.closest('form');
+  if (formEl) {
+    const id = formEl.getAttribute('id');
+    if (id) {
+      return `form#${CSS.escape(id)}`;
+    }
+    return `form${formEl.classList.length > 0 ? `.${CSS.escape(formEl.classList[0])}` : ''}`;
+  }
+  const block = el.closest('.block[data-block-name]');
+  return ((block && `.${block.getAttribute('data-block-name')}`)
+    || (walk(el, isDialog) && 'dialog')
+    || (walk(el, (e) => e.tagName && e.tagName.includes('-') && e.tagName.toLowerCase()))
+    || ['nav', 'header', 'footer', 'aside'].find((t) => el.closest(t))
+    || walk(el, (e) => e.id && `#${CSS.escape(e.id)}`));
+}
+
+function getSourceElement(el) {
+  const f = el.closest('form');
+  if (f && Array.from(f.elements).includes(el)) {
+    return (el.tagName.toLowerCase()
+      + (['INPUT', 'BUTTON'].includes(el.tagName)
+        ? `[type='${el.getAttribute('type') || ''}']`
+        : ''));
+  }
+  if (walk(el, isButton)) return 'button';
+  return el.tagName.toLowerCase().match(/^(a|img|video|form)$/) && el.tagName.toLowerCase();
+}
+
+function getSourceIdentifier(el) {
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  if (el.getAttribute('data-block-name')) return `.${el.getAttribute('data-block-name')}`;
+  
+  // Filter out temporary/state classes that shouldn't be part of the selector
+  const excludedClasses = ['loading', 'submitting', 'error', 'success', 'disabled'];
+  const validClasses = Array.from(el.classList).filter(cls => !excludedClasses.includes(cls));
+  
+  return (validClasses.length > 0 && `.${CSS.escape(validClasses[0])}`);
+}
+
+const sourceSelector = (el) => {
+  try {
+    if (!el || el === document.body || el === document.documentElement) {
+      return undefined;
+    }
+    if (el.getAttribute('data-rum-source')) {
+      return el.getAttribute('data-rum-source');
+    }
+    const ctx = getSourceContext(el.parentElement) || '';
+    const name = getSourceElement(el) || '';
+    const id = getSourceIdentifier(el) || '';
+    return `${ctx} ${name}${id}`.trim() || `"${el.textContent.substring(0, 10)}"`;
+    /* c8 ignore next 3 */
+  } catch (error) {
+    return null;
+  }
+};
+
+// Wrapper functions to maintain compatibility
+function createSourceSelector(el) {
+  const result = sourceSelector(el);
+  console.log('🔍 createSourceSelector debug:', {
+    element: el,
+    tagName: el?.tagName,
+    className: el?.className,
+    id: el?.id,
+    result
+  });
+  return result;
+}
+
+function createTargetSelector(el) {
+  return targetSelector(el);
+}
+
+/**
+ * Add event listeners to a specific form
+ * @param {Element} form - The form element to add listeners to
+ */
+function addListenersToForm(form) {
+  console.log('🔍 Adding listeners to form:', form);
+  
+    // Form submit listener (exact copy from rum-enhancer)
+    form.addEventListener('submit', (submitEvent) => {
+      console.log('📝 Direct form submit event:', submitEvent.target);
+      
+      // Check for form validation errors before submitting (exact copy from rum-enhancer)
+      const invalidFields = form.querySelectorAll(':invalid');
+      // Send error checkpoints for each invalid field (exact copy from rum-enhancer)
+      invalidFields.forEach((field) => {
+        if (field && field.validity) {
+          const prototype = Object.getPrototypeOf(field.validity);
+          const errorType = prototype
+            ? Object.keys(Object.getOwnPropertyDescriptors(prototype))
+              .filter((key) => key !== 'valid' && key !== 'constructor' && !key.startsWith('Symbol'))
+              .find((key) => field.validity[key]) || 'custom'
+            : 'custom';
+
+          console.log('📝 Form validation error detected:', { errorType, field });
+          bufferEvent({
+            checkpoint: 'error',
+            data: {
+              target: errorType,
+              source: createSourceSelector(field),
+            },
+            timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
+          });
+        }
+      });
+      
+      // Only send formsubmit event if there are no validation errors (exact copy from rum-enhancer)
+      if (invalidFields.length === 0) {
+        const submitType = getSubmitType(submitEvent.target);
+        const source = createSourceSelector(submitEvent.target);
+        const target = createTargetSelector(submitEvent.target);
+        
+        // Buffer the submit event
+        bufferEvent({
+          checkpoint: submitType,
+          data: { source, target },
+          timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
+        });
+        
+        // Only flush buffered events if this is a formsubmit checkpoint
+        if (submitType === FORM_SUBMIT_FLUSH_CHECKPOINT) {
+          console.log('🚀 Direct formsubmit detected, flushing buffer');
+          const allBufferedEvents = getBufferedEvents();
+          if (allBufferedEvents.length > 0) {
+            console.log('📤 Flushing', allBufferedEvents.length, 'buffered events on direct formsubmit');
+            allBufferedEvents.forEach(bufferedEvent => {
+              if (window.hlx && window.hlx.rum && window.hlx.rum.collector) {
+                console.log('📤 Sending buffered event to RUM collector (direct):', bufferedEvent);
+                console.log('🔍 RUM collector function (direct):', window.hlx.rum.collector);
+                console.log('🔍 RUM system state (direct):', {
+                  isSelected: window.hlx.rum.isSelected,
+                  weight: window.hlx.rum.weight,
+                  id: window.hlx.rum.id,
+                  collectorType: typeof window.hlx.rum.collector
+                });
+                
+                try {
+                  // Check if collector is a queue function or the actual trackCheckpoint
+                  const collectorStr = window.hlx.rum.collector.toString();
+                  if (collectorStr.includes('queue.push')) {
+                    console.log('🔍 Collector is a queue function, processing queue manually');
+                    // Call the collector to add to queue
+                    window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+                    
+                    // Process the queue manually if it exists
+                    if (window.hlx.rum.queue && Array.isArray(window.hlx.rum.queue)) {
+                      console.log('🔍 Processing RUM queue manually:', window.hlx.rum.queue.length, 'items');
+                      // Process each item in the queue
+                      window.hlx.rum.queue.forEach((queueItem, index) => {
+                        console.log(`🔍 Processing queue item ${index}:`, queueItem);
+                        // Try to call the actual trackCheckpoint function if available
+                        if (window.hlx.rum.trackCheckpoint) {
+                          window.hlx.rum.trackCheckpoint(...queueItem);
+                        } else {
+                          // Implement our own trackCheckpoint function based on rum-enhancer
+                          console.log('🔍 trackCheckpoint not available, implementing direct API call');
+                          try {
+                            const [checkpoint, data, timestamp] = queueItem;
+                            const { weight, id } = window.hlx.rum;
+                            
+                        // Create the request body (exact copy from rum-enhancer trackCheckpoint)
+                        // Force weight to 1 to match existing implementation
+                        
+                        // Implement urlSanitizers (copied from rum-enhancer)
+                        const urlSanitizers = {
+                          full: (url = window.location.href) => new URL(url).toString(),
+                          origin: (url = window.location.href) => new URL(url).origin,
+                          path: (url = window.location.href) => {
+                            const u = new URL(url);
+                            return `${u.origin}${u.pathname}`;
+                          }
+                        };
+                        
+                        // KNOWN_PROPERTIES (copied from rum-enhancer)
+                        const KNOWN_PROPERTIES = ['weight', 'id', 'referer', 'checkpoint', 't', 'source', 'target', 'cwv', 'CLS', 'FID', 'LCP', 'INP', 'TTFB'];
+                        
+                        const body = JSON.stringify({
+                          weight: 1, // Force weight to 1 to match existing implementation
+                          id,
+                          referer: urlSanitizers[window.hlx.RUM_MASK_URL || 'path'](), // Use urlSanitizers like rum-enhancer
+                          checkpoint,
+                          t: timestamp,
+                          ...data
+                        }, KNOWN_PROPERTIES); // Use KNOWN_PROPERTIES like rum-enhancer
+                        
+                        // Create the URL (exact copy from rum-enhancer)
+                        const urlParams = window.RUM_PARAMS ? `?${new URLSearchParams(window.RUM_PARAMS).toString()}` : '';
+                        const baseURL = window.sampleRUM?.collectBaseURL || window.location.origin;
+                        const { href: url, origin } = new URL(`.rum/1${urlParams.length > 1 ? urlParams : ''}`, baseURL);
+                            
+                            console.log('📤 Sending direct API call to:', url, 'with data:', body);
+                            
+                            // Send using navigator.sendBeacon (exact copy from rum-enhancer)
+                            if (window.location.origin === origin) {
+                              const headers = { type: 'application/json' };
+                              const success = navigator.sendBeacon(url, new Blob([body], headers));
+                              console.log('✅ sendBeacon result:', success);
+                            } else {
+                              const success = navigator.sendBeacon(url, body);
+                              console.log('✅ sendBeacon result (cross-origin):', success);
+                            }
+                            
+                            // Log the ping (same as rum-enhancer)
+                            console.debug(`ping:${checkpoint}`, data);
+                            
+                          } catch (error) {
+                            console.error('❌ Error in direct API call:', error);
+                          }
+                        }
+                      });
+                      // Clear the queue after processing
+                      window.hlx.rum.queue.length = 0;
+                    }
+                  } else {
+                    // Direct collector call
+                    window.hlx.rum.collector(bufferedEvent.checkpoint, bufferedEvent.data, bufferedEvent.timestamp);
+                  }
+                  console.log('✅ RUM collector called successfully (direct)');
+                } catch (error) {
+                  console.error('❌ Error calling RUM collector (direct):', error);
+                }
+              } else {
+                console.warn('⚠️ RUM collector not available for buffered event (direct):', bufferedEvent);
+                console.log('🔍 RUM system state (direct):', {
+                  hasHlx: !!window.hlx,
+                  hasRum: !!(window.hlx && window.hlx.rum),
+                  hasCollector: !!(window.hlx && window.hlx.rum && window.hlx.rum.collector)
+                });
+              }
+            });
+            clearBufferedEvents();
+          }
+        } else {
+          console.log('📝 Form submit detected but not formsubmit, not flushing buffer:', submitType);
+        }
+      } else {
+        console.log('📝 Form has validation errors, not sending formsubmit event');
+      }
+    }, { once: true });
+  
+  // Form field change listener (fill events)
+  let lastSource;
+  form.addEventListener('change', (changeEvent) => {
+    console.log('📝 Direct form change event:', changeEvent.target);
+    
+    // Check if form is fully loaded before capturing events
+    if (!isFormFullyLoaded(changeEvent.target)) {
+      console.log('📝 Form not fully loaded, skipping change event capture');
+      return;
+    }
+    
+    if (changeEvent.target.checkVisibility && changeEvent.target.checkVisibility()) {
+      const source = createSourceSelector(changeEvent.target);
+      if (source !== lastSource) {
+        bufferEvent({
+          checkpoint: 'fill',
+          data: { source },
+          timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
+        });
+        lastSource = source;
+      }
+    }
+  });
+  
+  // Form field focus listener (click events)
+  form.addEventListener('focusin', (focusEvent) => {
+    console.log('📝 Direct form focus event:', focusEvent.target);
+    
+    // Check if form is fully loaded before capturing events
+    if (!isFormFullyLoaded(focusEvent.target)) {
+      console.log('📝 Form not fully loaded, skipping focus event capture');
+      return;
+    }
+    
+    if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(focusEvent.target.tagName)
+      || focusEvent.target.getAttribute('contenteditable') === 'true') {
+      const source = createSourceSelector(focusEvent.target);
+      bufferEvent({
+        checkpoint: 'click',
+        data: { source },
+        timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
+      });
+    }
+  });
+  
+  // Form visibility listener (viewblock events)
+  if (window.IntersectionObserver) {
+    const observer = new IntersectionObserver((entries) => {
+      entries
+        .filter((e) => e.isIntersecting)
+        .forEach((e) => {
+          observer.unobserve(e.target);
+          
+          // For viewblock events, we're more lenient about loading state
+          if (!isFormFullyLoaded(e.target, 'viewblock')) {
+            console.log('📝 Form in critical state, skipping viewblock event capture');
+            return;
+          }
+          
+          const source = createSourceSelector(e.target);
+          const target = createTargetSelector(e.target);
+          console.log('📝 Direct form viewblock event:', e.target);
+          bufferEvent({
+            checkpoint: 'viewblock',
+            data: { source, target },
+            timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
+          });
+        });
+    });
+    observer.observe(form);
+  }
+}
+
+/**
+ * Add direct form event listeners to capture form interactions
+ * @param {Element} context - The context element to search for forms
+ */
+function addDirectFormListeners(context) {
+  console.log('🔍 Adding direct form listeners to context:', context);
+  
+  const forms = context.querySelectorAll('form');
+  console.log('🔍 Found', forms.length, 'forms to add listeners to');
+  
+  forms.forEach((form, index) => {
+    console.log(`🔍 Adding listeners to form ${index + 1}:`, form);
+    addListenersToForm(form);
+  });
+  
+  // Set up MutationObserver to watch for dynamically added forms
+  if (window.MutationObserver) {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if the added node is a form
+            if (node.tagName === 'FORM') {
+              console.log('🔍 New form detected via MutationObserver:', node);
+              addListenersToForm(node);
+            }
+            // Check if the added node contains forms
+            const formsInNode = node.querySelectorAll && node.querySelectorAll('form');
+            if (formsInNode && formsInNode.length > 0) {
+              console.log('🔍 New forms detected in added node:', formsInNode.length);
+              formsInNode.forEach(form => {
+                addListenersToForm(form);
+              });
+            }
+          }
+        });
+      });
+    });
+    
+    observer.observe(context, {
+      childList: true,
+      subtree: true
+    });
+    
+    console.log('🔍 MutationObserver set up to watch for new forms');
+  }
+}
+
+/**
+ * Debug function to check localStorage contents
+ */
+function debugLocalStorage() {
+  const bufferKey = getBufferKey();
+  const stored = localStorage.getItem(bufferKey);
+  console.log('🔍 Debug localStorage:', {
+    bufferKey,
+    hasData: !!stored,
+    data: stored ? JSON.parse(stored) : null
+  });
+  return stored ? JSON.parse(stored) : null;
+}
+
+/**
+ * Debug function to simulate form events for testing
+ */
+function debugSimulateFormEvents() {
+  console.log('🧪 Simulating form events for debugging...');
+  
+  // Simulate a viewblock event
+  bufferEvent({
+    checkpoint: 'viewblock',
+    data: { source: 'form', target: 'form' },
+    timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
+  });
+  
+  // Simulate a click event
+  bufferEvent({
+    checkpoint: 'click',
+    data: { source: 'form input[type="text"]' },
+    timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
+  });
+  
+  // Simulate a fill event
+  bufferEvent({
+    checkpoint: 'fill',
+    data: { source: 'form input[type="text"]' },
+    timestamp: window.performance ? window.performance.now() : Date.now() - (window.hlx?.rum?.firstReadTime || 0)
+  });
+  
+  console.log('🧪 Simulated events added. Check localStorage with: window.debugFormEventBuffer()');
+}
 
 /**
  * Initialize form event buffer plugin
@@ -66,7 +935,7 @@ async function loadHelixRumEnhancerPlugins(context) {
  * @param {Function} config.sampleRUM - The sampleRUM function
  * @param {Element} config.context - The context element to search for forms
  */
-export default async function addFormEventBuffer({ sampleRUM, context = document.body }) {
+export default function addFormEventBuffer({ sampleRUM, context = document.body }) {
   console.log('🔍 Form Event Buffer Plugin: Initializing for non-sampled user', {
     hasRUM: !!(window.hlx && window.hlx.rum),
     hasCollector: !!(window.hlx && window.hlx.rum && window.hlx.rum.collector),
@@ -80,49 +949,25 @@ export default async function addFormEventBuffer({ sampleRUM, context = document
     return;
   }
   
-  try {
-    // Load the official helix-rum-enhancer plugins
-    await loadHelixRumEnhancerPlugins(context);
-    console.log('✅ Form Event Buffer Plugin: Initialized successfully with official enhancer plugins');
-  } catch (error) {
-    console.error('❌ Form Event Buffer Plugin: Failed to load official enhancer plugins:', error);
-    console.log('📝 Form Event Buffer Plugin: No fallback implementation - enhancer plugins are required');
-  }
+  // Store the original sampleRUM function
+  const originalSampleRUM = window.sampleRUM || sampleRUM;
+  
+  // Override the sampleRUM function only when RUM is not selected
+  window.sampleRUM = (checkpoint, data) => {
+    return enhancedSampleRUM(originalSampleRUM, checkpoint, data);
+  };
+
+  // Add direct form event listeners to capture events even if RUM doesn't sample them
+  addDirectFormListeners(context);
+  
+  // Clean up expired events periodically
+  setInterval(cleanupExpiredBuffer, 30 * 60 * 1000);
+  
+  // Add debug functions to window for easy access
+  window.debugFormEventBuffer = debugLocalStorage;
+  window.debugSimulateFormEvents = debugSimulateFormEvents;
+  
+  console.log('✅ Form Event Buffer Plugin: Initialized successfully (RUM not selected)');
+  console.log('🔍 You can check localStorage with: window.debugFormEventBuffer()');
+  console.log('🧪 You can simulate events with: window.debugSimulateFormEvents()');
 }
-
-/**
- * Debug function to check localStorage contents
- */
-window.debugFormEventBuffer = function() {
-  console.log('🔍 Debug: Checking localStorage for form events...');
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.includes('helix-rum')) {
-      console.log(`📦 ${key}:`, JSON.parse(localStorage.getItem(key)));
-    }
-  }
-};
-
-/**
- * Debug function to simulate form events for testing
- */
-window.debugSimulateFormEvents = function() {
-  console.log('🧪 Simulating form events for debugging...');
-  
-  // Simulate a view block event
-  if (window.sampleRUM) {
-    window.sampleRUM('viewblock', { source: 'form', target: 'form' });
-  }
-  
-  // Simulate a click event
-  if (window.sampleRUM) {
-    window.sampleRUM('click', { source: 'form input[type="text"]' });
-  }
-  
-  // Simulate a fill event
-  if (window.sampleRUM) {
-    window.sampleRUM('fill', { source: 'form input[type="text"]' });
-  }
-  
-  console.log('🧪 Simulated events sent. Check with: window.debugFormEventBuffer()');
-};
