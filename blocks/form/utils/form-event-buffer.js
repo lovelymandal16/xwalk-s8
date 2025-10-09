@@ -22,7 +22,7 @@ console.log('🔍 Debug: RUM system available:', !!(window.hlx && window.hlx.rum
 
 const BUFFER_KEY = 'helix-rum-form-buffer';
 const MAX_BUFFER_SIZE = 50; // Maximum number of events to buffer per session
-const BUFFER_EXPIRY = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+const BUFFER_EXPIRY = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 // Form-specific checkpoints to track
 const FORM_CHECKPOINTS = [
