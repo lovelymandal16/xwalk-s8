@@ -351,10 +351,11 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
                         const { weight, id } = window.hlx.rum;
                         
                         // Create the request body (exact copy from rum-enhancer trackCheckpoint)
+                        // Force weight to 1 to match existing implementation
                         const body = JSON.stringify({
-                          weight,
+                          weight: 1, // Force weight to 1 like existing code
                           id,
-                          referer: window.location.pathname, // Simplified referer
+                          referer: window.location.href, // Full URL like existing code
                           checkpoint,
                           t: timestamp,
                           ...data
@@ -363,7 +364,7 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
                         // Create the URL (exact copy from rum-enhancer)
                         const urlParams = window.RUM_PARAMS ? `?${new URLSearchParams(window.RUM_PARAMS).toString()}` : '';
                         const baseURL = window.sampleRUM?.collectBaseURL || window.location.origin;
-                        const { href: url, origin } = new URL(`.rum/${weight}${urlParams.length > 1 ? urlParams : ''}`, baseURL);
+                        const { href: url, origin } = new URL(`.rum/1${urlParams.length > 1 ? urlParams : ''}`, baseURL);
                         
                         console.log('📤 Sending direct API call to:', url, 'with data:', body);
                         
@@ -669,20 +670,21 @@ function addListenersToForm(form) {
                             const [checkpoint, data, timestamp] = queueItem;
                             const { weight, id } = window.hlx.rum;
                             
-                            // Create the request body (exact copy from rum-enhancer trackCheckpoint)
-                            const body = JSON.stringify({
-                              weight,
-                              id,
-                              referer: window.location.pathname, // Simplified referer
-                              checkpoint,
-                              t: timestamp,
-                              ...data
-                            });
-                            
-                            // Create the URL (exact copy from rum-enhancer)
-                            const urlParams = window.RUM_PARAMS ? `?${new URLSearchParams(window.RUM_PARAMS).toString()}` : '';
-                            const baseURL = window.sampleRUM?.collectBaseURL || window.location.origin;
-                            const { href: url, origin } = new URL(`.rum/${weight}${urlParams.length > 1 ? urlParams : ''}`, baseURL);
+                        // Create the request body (exact copy from rum-enhancer trackCheckpoint)
+                        // Force weight to 1 to match existing implementation
+                        const body = JSON.stringify({
+                          weight: 1, // Force weight to 1 like existing code
+                          id,
+                          referer: window.location.href, // Full URL like existing code
+                          checkpoint,
+                          t: timestamp,
+                          ...data
+                        });
+                        
+                        // Create the URL (exact copy from rum-enhancer)
+                        const urlParams = window.RUM_PARAMS ? `?${new URLSearchParams(window.RUM_PARAMS).toString()}` : '';
+                        const baseURL = window.sampleRUM?.collectBaseURL || window.location.origin;
+                        const { href: url, origin } = new URL(`.rum/1${urlParams.length > 1 ? urlParams : ''}`, baseURL);
                             
                             console.log('📤 Sending direct API call to:', url, 'with data:', body);
                             
