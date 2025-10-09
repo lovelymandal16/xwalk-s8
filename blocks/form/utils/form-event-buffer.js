@@ -362,6 +362,21 @@ function walk(el, checkFn) {
 }
 
 /**
+ * Check if element is a dialog (copied from reference implementation)
+ * @param {Element} el - The element
+ * @returns {boolean} True if element is a dialog
+ */
+function isDialog(el) {
+  // doing it well
+  if (el.tagName === 'DIALOG') return true;
+  // making the best of it
+  const cs = window.getComputedStyle(el);
+  return ['dialog', 'alertdialog'].find((r) => el.getAttribute('role') === r)
+    || el.getAttribute('aria-modal') === 'true'
+    || (cs && cs.position === 'fixed' && cs.zIndex > 100);
+}
+
+/**
  * Get source context for an element (copied from reference implementation)
  * @param {Element} el - The element
  * @returns {string} The source context
@@ -377,7 +392,7 @@ function getSourceContext(el) {
   }
   const block = el.closest('.block[data-block-name]');
   return ((block && `.${block.getAttribute('data-block-name')}`)
-    || (walk(el, (e) => e.tagName === 'DIALOG') && 'dialog')
+    || (walk(el, isDialog) && 'dialog')
     || (walk(el, (e) => e.tagName && e.tagName.includes('-') && e.tagName.toLowerCase()))
     || ['nav', 'header', 'footer', 'aside'].find((t) => el.closest(t))
     || walk(el, (e) => e.id && `#${CSS.escape(e.id)}`));
@@ -427,7 +442,21 @@ function createSourceSelector(el) {
     const ctx = getSourceContext(el.parentElement) || '';
     const name = getSourceElement(el) || '';
     const id = getSourceIdentifier(el) || '';
-    return `${ctx} ${name}${id}`.trim() || `"${el.textContent.substring(0, 10)}"`;
+    const result = `${ctx} ${name}${id}`.trim() || `"${el.textContent.substring(0, 10)}"`;
+    
+    // Debug logging to compare with regular RUM
+    console.log('🔍 createSourceSelector debug:', {
+      element: el,
+      tagName: el.tagName,
+      className: el.className,
+      id: el.id,
+      ctx,
+      name,
+      id: id,
+      result
+    });
+    
+    return result;
   } catch (error) {
     return null;
   }
