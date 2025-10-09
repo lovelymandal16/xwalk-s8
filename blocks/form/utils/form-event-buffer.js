@@ -233,13 +233,25 @@ function isInsideForm(element) {
 /**
  * Check if a form is fully loaded (not in loading state)
  * @param {Element} element - The element to check
+ * @param {string} eventType - The type of event being checked
  * @returns {boolean} True if form is fully loaded
  */
-function isFormFullyLoaded(element) {
+function isFormFullyLoaded(element, eventType = 'default') {
   const form = element.closest('form');
   if (!form) return true; // Not a form element, consider it "loaded"
   
-  // Check if form has loading class
+  // For viewblock events, we're more lenient because visibility is independent of loading state
+  if (eventType === 'viewblock') {
+    // Only skip if form is in a critical loading state
+    if (form.classList.contains('submitting') || form.classList.contains('processing')) {
+      console.log('🔍 Form is in critical processing state, skipping viewblock event capture:', form);
+      return false;
+    }
+    // Allow viewblock events even if form is loading, as visibility is about user seeing the form
+    return true;
+  }
+  
+  // For other events, be more strict about loading state
   if (form.classList.contains('loading')) {
     console.log('🔍 Form is still loading, skipping event capture:', form);
     return false;
@@ -563,9 +575,9 @@ function addListenersToForm(form) {
         .forEach((e) => {
           observer.unobserve(e.target);
           
-          // Check if form is fully loaded before capturing events
-          if (!isFormFullyLoaded(e.target)) {
-            console.log('📝 Form not fully loaded, skipping viewblock event capture');
+          // For viewblock events, we're more lenient about loading state
+          if (!isFormFullyLoaded(e.target, 'viewblock')) {
+            console.log('📝 Form in critical state, skipping viewblock event capture');
             return;
           }
           
