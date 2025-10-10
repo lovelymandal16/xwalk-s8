@@ -292,8 +292,8 @@ function enhancedSampleRUM(originalSampleRUM, checkpoint, data) {
   const element = findElementFromData(data);
   const isFormRelated = element && isInsideForm(element);
   
-  // Buffer form-related events only if form is fully loaded
-  if (isFormCheckpoint || isFormRelated) {
+  // Buffer form-related events only if they are inside a form tag and form is fully loaded
+  if (isFormCheckpoint && isFormRelated) {
     // Check if form is fully loaded before capturing events
     if (!isFormFullyLoaded(element)) {
       console.log('📝 Form not fully loaded, skipping event capture:', { checkpoint, element });
