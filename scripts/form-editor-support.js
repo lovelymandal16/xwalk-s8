@@ -347,7 +347,22 @@ export function attachEventListners(main) {
   }
   document.body.addEventListener('aue:ui-edit', ueEditModeHandler);
 }
+function enableAuthoringAssistantExtension() {
+  const meta = document.createElement('meta');
+  meta.name = 'urn:adobe:aue:config:extensions';
 
+ if (window.location.href.includes('cmstg')==true){
+   meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-24d470a2754834fd7dabc9cf139b322cb7826e98';
+ }
+ else{
+  meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-24d470a2754834fd7dabc9cf139b322cb7826e98';
+ }
+ 
+
+ console.log('Adding meta tag for aem forms authoring assistant extension:', meta.content);
+  document.head.appendChild(meta);
+}
+enableAuthoringAssistantExtension();
 const observer = new MutationObserver(instrumentForms);
 observer.observe(document, { childList: true, subtree: true, attributeFilter: ['form'] });
 loadCSS(`${window.hlx.codeBasePath}/scripts/form-editor-support.css`);
