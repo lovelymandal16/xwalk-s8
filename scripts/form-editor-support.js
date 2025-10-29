@@ -347,22 +347,22 @@ export function attachEventListners(main) {
   }
   document.body.addEventListener('aue:ui-edit', ueEditModeHandler);
 }
-function enableAuthoringAssistantExtension() {
-  const meta = document.createElement('meta');
-  meta.name = 'urn:adobe:aue:config:extensions';
+// function enableAuthoringAssistantExtension() {
+//   const meta = document.createElement('meta');
+//   meta.name = 'urn:adobe:aue:config:extensions';
 
- if (window.location.href.includes('cmstg')==true){
-   meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-9365cfbafae5d74006110bd79f3ccff3558b2300';
- }
- else{
-  meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-9365cfbafae5d74006110bd79f3ccff3558b2300';
- }
+//  if (window.location.href.includes('cmstg')==true){
+//    meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-9365cfbafae5d74006110bd79f3ccff3558b2300';
+//  }
+//  else{
+//   meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-9365cfbafae5d74006110bd79f3ccff3558b2300';
+//  }
  
 
- console.log('Adding meta tag for aem forms authoring assistant extension:', meta.content);
-  document.head.appendChild(meta);
-}
-enableAuthoringAssistantExtension();
+//  console.log('Adding meta tag for aem forms authoring assistant extension:', meta.content);
+//   document.head.appendChild(meta);
+// }
+// enableAuthoringAssistantExtension();
 const observer = new MutationObserver(instrumentForms);
 observer.observe(document, { childList: true, subtree: true, attributeFilter: ['form'] });
 loadCSS(`${window.hlx.codeBasePath}/scripts/form-editor-support.css`);
