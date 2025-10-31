@@ -347,22 +347,24 @@ export function attachEventListners(main) {
   }
   document.body.addEventListener('aue:ui-edit', ueEditModeHandler);
 }
-// function enableAuthoringAssistantExtension() {
-//   const meta = document.createElement('meta');
-//   meta.name = 'urn:adobe:aue:config:extensions';
+function enableAuthoringAssistantExtension() {
+  const meta = document.createElement('meta');
+  meta.name = 'urn:adobe:aue:config:extensions';
+//  meta.content = 'https://localhost.corp.adobe.com:8013/resources/universal_editor.html?livecycle-forms-spa_version=local'; //<<<< this is static url
 
-//  if (window.location.href.includes('cmstg')==true){
-//    meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-9365cfbafae5d74006110bd79f3ccff3558b2300';
-//  }
-//  else{
-//   meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-9365cfbafae5d74006110bd79f3ccff3558b2300';
-//  }
+
+  if (window.location.href.includes('cmstg')==true){
+    meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-forms-spa/static-assets/resources/universal_editor.html?livecycle-forms-spa_version=PR-582-76a4633935d3037f7f94c104b8614a4ae0945cb2';
+  }
+  else{
+   meta.content =   'https://experience.adobe.com/solutions/livecycle-forms-spa/static-assets/resources/universal_editor.html?livecycle-forms-spa_version=PR-582-76a4633935d3037f7f94c104b8614a4ae0945cb2';
+  }
  
 
-//  console.log('Adding meta tag for aem forms authoring assistant extension:', meta.content);
-//   document.head.appendChild(meta);
-// }
-// enableAuthoringAssistantExtension();
+ console.log('Adding meta tag for aem forms authoring assistant extension:', meta.content);
+  document.head.appendChild(meta);
+}
+enableAuthoringAssistantExtension();
 const observer = new MutationObserver(instrumentForms);
 observer.observe(document, { childList: true, subtree: true, attributeFilter: ['form'] });
 loadCSS(`${window.hlx.codeBasePath}/scripts/form-editor-support.css`);
