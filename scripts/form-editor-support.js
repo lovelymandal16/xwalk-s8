@@ -354,10 +354,10 @@ function enableAuthoringAssistantExtension() {
 
 
   if (window.location.href.includes('cmstg')==true){
-    meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-forms-spa/static-assets/resources/universal_editor.html?livecycle-forms-spa_version=PR-582-76a4633935d3037f7f94c104b8614a4ae0945cb2';
+    meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-forms-spa/static-assets/resources/universal_editor.html?livecycle-forms-spa_version=PR-585-8b4959e72353e9a84f9e4ff055fdfc71d9da4903';
   }
   else{
-   meta.content =   'https://experience.adobe.com/solutions/livecycle-forms-spa/static-assets/resources/universal_editor.html?livecycle-forms-spa_version=PR-582-76a4633935d3037f7f94c104b8614a4ae0945cb2';
+   meta.content =   'https://experience.adobe.com/solutions/livecycle-forms-spa/static-assets/resources/universal_editor.html?livecycle-forms-spa_version=PR-585-8b4959e72353e9a84f9e4ff055fdfc71d9da4903';
   }
  
 
