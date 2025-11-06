@@ -361,10 +361,10 @@ function enableAuthoringAssistantExtension() {
   // }
 
   if (window.location.href.includes('cmstg')==true){
-    meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-af-extensions/resources/dor-generate?livecycle-af-extensions_version=PR-22-6cff2446f9842c356ee538c005cb7a2d845f9f80';
+    meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-af-extensions/resources/dor-generate?livecycle-af-extensions_version=PR-22-9365cfbafae5d74006110bd79f3ccff3558b2300';
   }
   else{
-    meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/resources/dor-generate?livecycle-af-extensions_version=PR-22-6cff2446f9842c356ee538c005cb7a2d845f9f80';
+    meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/resources/dor-generate?livecycle-af-extensions_version=PR-22-9365cfbafae5d74006110bd79f3ccff3558b2300';
   }
  
 
