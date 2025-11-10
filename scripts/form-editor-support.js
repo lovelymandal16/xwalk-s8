@@ -352,10 +352,10 @@ function enableAuthoringAssistantExtension() {
   meta.name = 'urn:adobe:aue:config:extensions';
 
  if (window.location.href.includes('cmstg')==true){
-   meta.content =   'https://experience.adobe.com/solutions/livecycle-datasource-ui-service/resources/universal_editor?livecycle-datasource-ui-service_version=PR-15-055e7e89563e3c68cd65d3d875f5ed9cb90d4e17&shell_domain=author.adobeaemcloud.com';
+   meta.content =   'https://experience.adobe.com/solutions/livecycle-datasource-ui-service/resources/universal_editor?livecycle-datasource-ui-service_version=PR-22-5333d4ffb6dfe70725f6c7c4e60fc8110c7ee13c&shell_domain=author.adobeaemcloud.com';
  }
  else{
-  meta.content =   'https://experience.adobe.com/solutions/livecycle-datasource-ui-service/resources/universal_editor?livecycle-datasource-ui-service_version=PR-15-055e7e89563e3c68cd65d3d875f5ed9cb90d4e17&shell_domain=author.adobeaemcloud.com';
+  meta.content =   'https://experience.adobe.com/solutions/livecycle-datasource-ui-service/resources/universal_editor?livecycle-datasource-ui-service_version=PR-22-5333d4ffb6dfe70725f6c7c4e60fc8110c7ee13c&shell_domain=author.adobeaemcloud.com';
  }
  
 
