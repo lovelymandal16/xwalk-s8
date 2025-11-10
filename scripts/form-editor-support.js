@@ -352,10 +352,10 @@ function enableAuthoringAssistantExtension() {
   meta.name = 'urn:adobe:aue:config:extensions';
 
  if (window.location.href.includes('cmstg')==true){
-   meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-8e686e294019b76985f6e058bd396c0c18d6e9c7';
+   meta.content =   'https://experience-stage.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-5333d4ffb6dfe70725f6c7c4e60fc8110c7ee13c';
  }
  else{
-  meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-8e686e294019b76985f6e058bd396c0c18d6e9c7';
+  meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-5333d4ffb6dfe70725f6c7c4e60fc8110c7ee13c';
  }
  
 
