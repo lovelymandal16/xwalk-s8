@@ -355,7 +355,7 @@ function enableAuthoringAssistantExtension() {
    meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/resources/dor-generate?livecycle-af-extensions_version=PR-22-5333d4ffb6dfe70725f6c7c4e60fc8110c7ee13c&shell_domain=author.adobeaemcloud.com';
  }
  else{
-  meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-62a653c9f84fb3cb69d5d103f34ba0344cbe9f32&shell_domain=*.adobeaemcloud.com';
+  meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/static-assets/resources/dor-generate/index.html?livecycle-af-extensions_version=PR-22-9c431f5322754cac5769a6c5b42b1f3d9bd56e99&shell_domain=*.adobeaemcloud.com';
    //meta.content =   'https://experience.adobe.com/solutions/livecycle-af-extensions/resources/dor-generate?livecycle-af-extensions_version=PR-22-5333d4ffb6dfe70725f6c7c4e60fc8110c7ee13c&shell_domain=author.adobeaemcloud.com';
  }
  
