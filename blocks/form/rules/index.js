@@ -91,7 +91,7 @@ async function fieldChanged(payload, form, generateFormRendition) {
     switch (propertyName) {
       case 'required':
         if (currentValue === true) {
-          fieldWrapper.dataset.required = '';
+          fieldWrapper.dataset.required = 'true';
         } else {
           fieldWrapper.removeAttribute('data-required');
         }
