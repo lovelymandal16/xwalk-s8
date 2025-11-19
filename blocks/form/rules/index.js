@@ -95,31 +95,31 @@ async function fieldChanged(payload, form, generateFormRendition) {
         } else {
           fieldWrapper.removeAttribute('data-required');
         }
-         // Update the required attribute on the actual input element(s)
-        if (fieldType === 'radio-group' || fieldType === 'checkbox-group') {
-          // For radio/checkbox groups, update all inputs
-          field.querySelectorAll(`input[name="${name}"]`).forEach((input) => {
-            if (currentValue === true) {
-              input.setAttribute('required', 'required');
-            } else {
-              input.removeAttribute('required');
-            }
-          });
-        } else if (fieldType === 'drop-down') {
-          // For dropdowns (select elements)
-          if (currentValue === true) {
-            field.setAttribute('required', 'required');
-          } else {
-            field.removeAttribute('required');
-          }
-        } else {
-          // For regular input fields
-          if (currentValue === true) {
-            field.setAttribute('required', 'required');
-          } else {
-            field.removeAttribute('required');
-          }
-        }
+        //  // Update the required attribute on the actual input element(s)
+        // if (fieldType === 'radio-group' || fieldType === 'checkbox-group') {
+        //   // For radio/checkbox groups, update all inputs
+        //   field.querySelectorAll(`input[name="${name}"]`).forEach((input) => {
+        //     if (currentValue === true) {
+        //       input.setAttribute('required', 'required');
+        //     } else {
+        //       input.removeAttribute('required');
+        //     }
+        //   });
+        // } else if (fieldType === 'drop-down') {
+        //   // For dropdowns (select elements)
+        //   if (currentValue === true) {
+        //     field.setAttribute('required', 'required');
+        //   } else {
+        //     field.removeAttribute('required');
+        //   }
+        // } else {
+        //   // For regular input fields
+        //   if (currentValue === true) {
+        //     field.setAttribute('required', 'required');
+        //   } else {
+        //     field.removeAttribute('required');
+        //   }
+        // }
         break;
       case 'validationMessage':
         {
