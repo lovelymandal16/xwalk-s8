@@ -92,7 +92,7 @@ function fileValidation(input, files) {
     errorMessage = defaultErrorMessages.minItems.replace(/\$0/, minItems);
   }
   if (constraint.length) {
-    const finalMessage = wrapper.dataset[constraint]
+    const finalMessage = wrapper.dataset[`${constraint}ErrorMessage`]
     || errorMessage
     || defaultErrorMessages[constraint];
     input.setCustomValidity(finalMessage);
