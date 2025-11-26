@@ -44,26 +44,48 @@ function matchMediaType(mediaType, accepts) {
  * checks whether the size of the files in the array is withing the maxFileSize or not
  * @param {string|number} maxFileSize maxFileSize in bytes or string with the unit
  * @param {File[]} files array of File objects
- * @returns false if any file is larger than the maxFileSize
+ * @returns {object} object with valid flag and invalidFiles array
  */
 function checkMaxFileSize(maxFileSize, files) {
   const sizeLimit = typeof maxFileSize === 'string' ? getSizeInBytes(maxFileSize) : maxFileSize;
-  return Array.from(files).find((file) => file.size > sizeLimit) === undefined;
+  const invalidFiles = Array.from(files).filter((file) => file.size > sizeLimit);
+  return {
+    valid: invalidFiles.length === 0,
+    invalidFiles,
+  };
 }
 
 /**
  * checks whether the mediaType of the files in the array are accepted or not
  * @param {[]} acceptedMediaTypes
  * @param {File[]} files
- * @returns false if the mediaType of any file is not accepted
+ * @returns {object} object with valid flag and invalidFiles array
  */
 function checkAccept(acceptedMediaTypes, files) {
   if (!acceptedMediaTypes || acceptedMediaTypes.length === 0 || !files.length) {
-    return true;
+    return { valid: true, invalidFiles: [] };
   }
-  const invalidFile = Array.from(files)
-    .some((file) => !matchMediaType(file.type, acceptedMediaTypes));
-  return !invalidFile;
+  const invalidFiles = Array.from(files)
+    .filter((file) => !matchMediaType(file.type, acceptedMediaTypes));
+  return {
+    valid: invalidFiles.length === 0,
+    invalidFiles,
+  };
+}
+
+/**
+ * Replaces template variables in error message with actual values
+ * @param {string} message - The error message with template variables
+ * @param {object} replacements - Object containing replacement values
+ * @returns {string} The message with replaced variables
+ */
+function replaceMessageVariables(message, replacements) {
+  let result = message;
+  Object.keys(replacements).forEach((key) => {
+    const regex = new RegExp(`\\$\\{${key}\\}`, 'g');
+    result = result.replace(regex, replacements[key]);
+  });
+  return result;
 }
 
 /**
@@ -79,11 +101,17 @@ function fileValidation(input, files) {
   const fileSize = `${input.dataset.maxFileSize || '2MB'}`;
   let constraint = '';
   let errorMessage = '';
+  let invalidFiles = [];
   const wrapper = input.closest('.field-wrapper');
-  if (!checkAccept(acceptedFile, files)) {
+  const acceptCheck = checkAccept(acceptedFile, files);
+  const sizeCheck = checkMaxFileSize(fileSize, files);
+  
+  if (!acceptCheck.valid) {
     constraint = 'accept';
-  } else if (!checkMaxFileSize(fileSize, files)) {
+    invalidFiles = acceptCheck.invalidFiles;
+  } else if (!sizeCheck.valid) {
     constraint = 'maxFileSize';
+    invalidFiles = sizeCheck.invalidFiles;
   } else if (multiple && maxItems !== -1 && files.length > maxItems) {
     constraint = 'maxItems';
     errorMessage = defaultErrorMessages.maxItems.replace(/\$0/, maxItems);
@@ -92,9 +120,18 @@ function fileValidation(input, files) {
     errorMessage = defaultErrorMessages.minItems.replace(/\$0/, minItems);
   }
   if (constraint.length) {
-    const finalMessage = wrapper.dataset[`${constraint}ErrorMessage`]
+    let finalMessage = wrapper.dataset[`${constraint}ErrorMessage`]
     || errorMessage
     || defaultErrorMessages[constraint];
+    
+    // Replace template variables with actual file names
+    if (invalidFiles.length > 0) {
+      const fileNames = invalidFiles.map((file) => file.name).join(', ');
+      finalMessage = replaceMessageVariables(finalMessage, {
+        file_attach: fileNames,
+      });
+    }
+    
     input.setCustomValidity(finalMessage);
     updateOrCreateInvalidMsg(
       input,
